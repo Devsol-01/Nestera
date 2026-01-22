@@ -128,9 +128,9 @@ jobs:
 
       - name: Verify WASM artifact
         run: |
-          if [ -f target/wasm32-unknown-unknown/release/nestera.wasm ]; then
+          if ls target/wasm32v1-none/release/*.wasm 1> /dev/null 2>&1; then
             echo "✓ WASM file generated successfully"
-            ls -lh target/wasm32-unknown-unknown/release/*.wasm
+            ls -lh target/wasm32v1-none/release/*.wasm
           else
             echo "✗ WASM file not found"
             find target -name "*.wasm" -type f
