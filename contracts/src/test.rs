@@ -421,3 +421,105 @@ fn test_plan_type_patterns() {
         assert_eq!(amount, 5_000_000);
     }
 }
+
+// ========== User Initialization Tests ==========
+
+#[test]
+fn test_initialize_user_success() {
+    let env = Env::default();
+    let contract_id = env.register(NesteraContract, ());
+    let client = NesteraContractClient::new(&env, &contract_id);
+
+    let user = Address::generate(&env);
+
+    env.mock_all_auths();
+
+    // Initialize user should succeed
+    let result = client.initialize_user(&user);
+    assert_eq!(result, ());
+
+    // Verify user exists
+    assert!(client.user_exists(&user));
+}
+
+#[test]
+fn test_initialize_user_duplicate_fails() {
+    let env = Env::default();
+    let contract_id = env.register(NesteraContract, ());
+    let client = NesteraContractClient::new(&env, &contract_id);
+
+    let user = Address::generate(&env);
+
+    env.mock_all_auths();
+
+    // First initialization should succeed
+    client.initialize_user(&user);
+
+    // Second initialization should fail with UserAlreadyExists
+    let result = client.try_initialize_user(&user);
+    assert_eq!(result, Err(Ok(SavingsError::UserAlreadyExists)));
+}
+
+#[test]
+fn test_get_user_not_found() {
+    let env = Env::default();
+    let contract_id = env.register(NesteraContract, ());
+    let client = NesteraContractClient::new(&env, &contract_id);
+
+    let user = Address::generate(&env);
+
+    // get_user for non-existent user should return UserNotFound
+    let result = client.try_get_user(&user);
+    assert_eq!(result, Err(Ok(SavingsError::UserNotFound)));
+}
+
+#[test]
+fn test_get_user_success() {
+    let env = Env::default();
+    let contract_id = env.register(NesteraContract, ());
+    let client = NesteraContractClient::new(&env, &contract_id);
+
+    let user = Address::generate(&env);
+
+    env.mock_all_auths();
+
+    // Initialize user
+    client.initialize_user(&user);
+
+    // get_user should return user data with default values
+    let user_data = client.get_user(&user);
+    assert_eq!(user_data.total_balance, 0);
+    assert_eq!(user_data.savings_count, 0);
+}
+
+#[test]
+fn test_user_exists_false_for_new_user() {
+    let env = Env::default();
+    let contract_id = env.register(NesteraContract, ());
+    let client = NesteraContractClient::new(&env, &contract_id);
+
+    let user = Address::generate(&env);
+
+    // user_exists should return false for non-existent user
+    assert!(!client.user_exists(&user));
+}
+
+#[test]
+fn test_initialize_user_requires_auth() {
+    let env = Env::default();
+    let contract_id = env.register(NesteraContract, ());
+    let client = NesteraContractClient::new(&env, &contract_id);
+
+    let user = Address::generate(&env);
+
+    env.mock_all_auths_allowing_non_root_auth();
+
+    // Initialize user
+    client.initialize_user(&user);
+
+    // Verify that the user was required to authorize
+    let auths = env.auths();
+    assert_eq!(auths.len(), 1);
+    let (auth_addr, _) = &auths[0];
+    assert_eq!(auth_addr, &user);
+}

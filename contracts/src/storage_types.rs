@@ -1,16 +1,23 @@
-use soroban_sdk::{contracttype, contracterror, Address, Symbol};
+use soroban_sdk::{contracttype, Address, Symbol};
 
-/// Error codes for the Nestera savings contract
-#[contracterror]
-#[derive(Clone, Debug, Copy, Eq, PartialEq, PartialOrd, Ord)]
-#[repr(u32)]
-pub enum SavingsError {
-    UserNotFound = 1,
-    PlanNotFound = 2,
-    Unauthorized = 3,
-    LockNotMatured = 4,
-    AlreadyWithdrawn = 5,
-    InsufficientBalance = 6,
+/// User account data structure
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct User {
+    /// Total balance across all savings
+    pub total_balance: i128,
+    /// Number of active savings accounts
+    pub savings_count: u32,
+}
+
+impl User {
+    /// Create a new user with zero balances
+    pub fn new() -> Self {
+        User {
+            total_balance: 0,
+            savings_count: 0,
+        }
+    }
 }
 
 /// Represents the different types of savings plans available in Nestera
@@ -39,13 +46,7 @@ pub struct SavingsPlan {
     pub is_withdrawn: bool,
 }
 
-/// Represents a user's aggregated savings information
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct User {
-    pub total_balance: i128,
-    pub savings_count: u32,
-}
+
 
 /// Storage keys for the contract's persistent data
 #[contracttype]
@@ -56,3 +57,4 @@ pub enum DataKey {
     /// Maps a (user address, plan_id) tuple to a SavingsPlan
     SavingsPlan(Address, u64),
 }
+
