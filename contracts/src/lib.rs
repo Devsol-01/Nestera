@@ -1,6 +1,7 @@
 #![no_std]
 #![allow(non_snake_case)]
 mod flexi;
+mod group;
 mod storage_types;
 mod users;
 
@@ -10,7 +11,7 @@ use soroban_sdk::{
     contract, contractimpl, panic_with_error, symbol_short, xdr::ToXdr, Address, Bytes, BytesN,
     Env, Symbol, Vec,
 };
-pub use storage_types::{DataKey, MintPayload, PlanType, SavingsPlan};
+pub use storage_types::{DataKey, GroupSave, MintPayload, PlanType, SavingsPlan};
 
 /// Custom error codes for the contract
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -281,6 +282,48 @@ impl NesteraContract {
     /// Public entry point to withdraw from Flexi Save
     pub fn withdraw_flexi(env: Env, user: Address, amount: i128) -> Result<(), SavingsError> {
         flexi::flexi_withdraw(env, user, amount)
+    }
+
+    /// Create a new group savings plan
+    pub fn create_group_save(
+        env: Env,
+        creator: Address,
+        is_public: bool,
+        target_amount: i128,
+        max_members: u32,
+        contribution_type: u32,
+    ) -> Result<u64, SavingsError> {
+        group::create_group_save(&env, creator, is_public, target_amount, max_members, contribution_type)
+    }
+
+    /// Join a public group savings plan
+    pub fn join_group_save(env: Env, user: Address, group_id: u64) -> Result<(), SavingsError> {
+        group::join_group_save(&env, user, group_id)
+    }
+
+    /// Contribute to a group savings plan
+    pub fn contribute_to_group_save(
+        env: Env,
+        user: Address,
+        group_id: u64,
+        amount: i128,
+    ) -> Result<(), SavingsError> {
+        group::contribute_to_group_save(&env, user, group_id, amount)
+    }
+
+    /// Get group information
+    pub fn get_group(env: Env, group_id: u64) -> Result<GroupSave, SavingsError> {
+        group::get_group(&env, group_id)
+    }
+
+    /// Get a member's contribution to a group
+    pub fn get_member_contribution(env: Env, group_id: u64, user: Address) -> i128 {
+        group::get_member_contribution(&env, group_id, &user)
+    }
+
+    /// Check if a user is a member of a group
+    pub fn is_group_member(env: Env, user: Address, group_id: u64) -> bool {
+        group::is_group_member(&env, &user, group_id)
     }
 }
 
