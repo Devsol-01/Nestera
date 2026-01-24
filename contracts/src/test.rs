@@ -817,3 +817,391 @@ fn test_flexi_invalid_amount() {
     let result = client.try_deposit_flexi(&user, &0);
     assert_eq!(result, Err(Ok(SavingsError::InvalidAmount)));
 }
+
+// =============================================================================
+// Group Save Tests
+// =============================================================================
+
+#[test]
+fn test_create_group_save_success() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    env.mock_all_auths();
+
+    // Initialize creator
+    client.initialize_user(&creator);
+
+    // Create a public group
+    let group_id = client.create_group_save(
+        &creator,
+        &true,      // is_public
+        &10000_i128, // target_amount
+        &5u32,      // max_members
+        &1u32,      // contribution_type (weekly)
+    );
+
+    assert_eq!(group_id, 1);
+
+    // Verify group was created
+    let group = client.get_group(&group_id);
+    assert_eq!(group.group_id, group_id);
+    assert_eq!(group.is_public, true);
+    assert_eq!(group.target_amount, 10000_i128);
+    assert_eq!(group.current_amount, 0);
+    assert_eq!(group.member_count, 1); // Creator is first member
+    assert_eq!(group.max_members, 5);
+    assert_eq!(group.is_completed, false);
+}
+
+#[test]
+fn test_create_group_invalid_amount() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+
+    // Try to create group with invalid target amount
+    let result = client.try_create_group_save(&creator, &true, &0, &5u32, &1u32);
+    assert_eq!(result, Err(Ok(SavingsError::InvalidAmount)));
+
+    let result2 = client.try_create_group_save(&creator, &true, &-100, &5u32, &1u32);
+    assert_eq!(result2, Err(Ok(SavingsError::InvalidAmount)));
+}
+
+#[test]
+fn test_create_group_invalid_config() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+
+    // Try to create group with 0 max_members
+    let result = client.try_create_group_save(&creator, &true, &10000, &0u32, &1u32);
+    assert_eq!(result, Err(Ok(SavingsError::InvalidGroupConfig)));
+}
+
+#[test]
+fn test_join_group_save_success() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let user = Address::generate(&env);
+    env.mock_all_auths();
+
+    // Initialize users
+    client.initialize_user(&creator);
+    client.initialize_user(&user);
+
+    // Create a public group
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &5u32, &1u32);
+
+    // User joins the group
+    client.join_group_save(&user, &group_id);
+
+    // Verify user is a member
+    assert!(client.is_group_member(&user, &group_id));
+
+    // Verify member count increased
+    let group = client.get_group(&group_id);
+    assert_eq!(group.member_count, 2);
+
+    // Verify user's contribution is 0
+    assert_eq!(client.get_member_contribution(&group_id, &user), 0);
+}
+
+#[test]
+fn test_join_group_user_not_found() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let non_existent_user = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &5u32, &1u32);
+
+    // Try to join without being initialized
+    let result = client.try_join_group_save(&non_existent_user, &group_id);
+    assert_eq!(result, Err(Ok(SavingsError::UserNotFound)));
+}
+
+#[test]
+fn test_join_group_plan_not_found() {
+    let (env, client) = setup_test_env();
+    let user = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&user);
+
+    // Try to join non-existent group
+    let result = client.try_join_group_save(&user, &999u64);
+    assert_eq!(result, Err(Ok(SavingsError::PlanNotFound)));
+}
+
+#[test]
+fn test_join_group_already_member() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let user = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+    client.initialize_user(&user);
+
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &5u32, &1u32);
+    client.join_group_save(&user, &group_id);
+
+    // Try to join again
+    let result = client.try_join_group_save(&user, &group_id);
+    assert_eq!(result, Err(Ok(SavingsError::UserAlreadyExists)));
+}
+
+#[test]
+fn test_join_group_full() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+
+    // Create a group with max 2 members (creator counts as 1)
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &2u32, &1u32);
+
+    // Add one more member
+    let user1 = Address::generate(&env);
+    client.initialize_user(&user1);
+    client.join_group_save(&user1, &group_id);
+
+    // Try to add another member (should fail - group full)
+    let user2 = Address::generate(&env);
+    client.initialize_user(&user2);
+    let result = client.try_join_group_save(&user2, &group_id);
+    assert_eq!(result, Err(Ok(SavingsError::GroupFull)));
+}
+
+#[test]
+fn test_join_private_group_not_invited() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let user = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+    client.initialize_user(&user);
+
+    // Create a private group
+    let group_id = client.create_group_save(&creator, &false, &10000_i128, &5u32, &1u32);
+
+    // User tries to join private group (should fail)
+    let result = client.try_join_group_save(&user, &group_id);
+    assert_eq!(result, Err(Ok(SavingsError::NotGroupMember)));
+}
+
+#[test]
+fn test_contribute_to_group_save_success() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let user = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+    client.initialize_user(&user);
+
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &5u32, &1u32);
+    client.join_group_save(&user, &group_id);
+
+    // User contributes to the group
+    client.contribute_to_group_save(&user, &group_id, &2000_i128);
+
+    // Verify contribution was recorded
+    assert_eq!(client.get_member_contribution(&group_id, &user), 2000_i128);
+
+    // Verify group current_amount increased
+    let group = client.get_group(&group_id);
+    assert_eq!(group.current_amount, 2000_i128);
+    assert_eq!(group.is_completed, false); // Not yet reached target
+}
+
+#[test]
+fn test_contribute_multiple_times() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &5u32, &1u32);
+
+    // Creator contributes multiple times
+    client.contribute_to_group_save(&creator, &group_id, &1000_i128);
+    client.contribute_to_group_save(&creator, &group_id, &1500_i128);
+    client.contribute_to_group_save(&creator, &group_id, &2500_i128);
+
+    // Verify total contribution
+    assert_eq!(
+        client.get_member_contribution(&group_id, &creator),
+        5000_i128
+    );
+
+    let group = client.get_group(&group_id);
+    assert_eq!(group.current_amount, 5000_i128);
+}
+
+#[test]
+fn test_contribute_reaches_target() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &5u32, &1u32);
+
+    // Contribute exactly the target amount
+    client.contribute_to_group_save(&creator, &group_id, &10000_i128);
+
+    // Verify group is completed
+    let group = client.get_group(&group_id);
+    assert_eq!(group.current_amount, 10000_i128);
+    assert_eq!(group.is_completed, true);
+}
+
+#[test]
+fn test_contribute_exceeds_target() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &5u32, &1u32);
+
+    // Contribute more than target
+    client.contribute_to_group_save(&creator, &group_id, &15000_i128);
+
+    // Verify group is completed and amount is recorded
+    let group = client.get_group(&group_id);
+    assert_eq!(group.current_amount, 15000_i128);
+    assert_eq!(group.is_completed, true);
+}
+
+#[test]
+fn test_contribute_invalid_amount() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &5u32, &1u32);
+
+    // Try to contribute zero
+    let result = client.try_contribute_to_group_save(&creator, &group_id, &0);
+    assert_eq!(result, Err(Ok(SavingsError::InvalidAmount)));
+
+    // Try to contribute negative
+    let result2 = client.try_contribute_to_group_save(&creator, &group_id, &-100);
+    assert_eq!(result2, Err(Ok(SavingsError::InvalidAmount)));
+}
+
+#[test]
+fn test_contribute_not_a_member() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let non_member = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+    client.initialize_user(&non_member);
+
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &5u32, &1u32);
+
+    // Non-member tries to contribute
+    let result = client.try_contribute_to_group_save(&non_member, &group_id, &1000);
+    assert_eq!(result, Err(Ok(SavingsError::NotGroupMember)));
+}
+
+#[test]
+fn test_contribute_user_not_found() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let non_existent = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &5u32, &1u32);
+
+    // Non-existent user tries to contribute
+    let result = client.try_contribute_to_group_save(&non_existent, &group_id, &1000);
+    assert_eq!(result, Err(Ok(SavingsError::UserNotFound)));
+}
+
+#[test]
+fn test_multiple_members_contribute() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let user1 = Address::generate(&env);
+    let user2 = Address::generate(&env);
+    env.mock_all_auths();
+
+    // Initialize all users
+    client.initialize_user(&creator);
+    client.initialize_user(&user1);
+    client.initialize_user(&user2);
+
+    // Create group and add members
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &5u32, &1u32);
+    client.join_group_save(&user1, &group_id);
+    client.join_group_save(&user2, &group_id);
+
+    // Each member contributes
+    client.contribute_to_group_save(&creator, &group_id, &3000_i128);
+    client.contribute_to_group_save(&user1, &group_id, &2500_i128);
+    client.contribute_to_group_save(&user2, &group_id, &4500_i128);
+
+    // Verify individual contributions
+    assert_eq!(client.get_member_contribution(&group_id, &creator), 3000_i128);
+    assert_eq!(client.get_member_contribution(&group_id, &user1), 2500_i128);
+    assert_eq!(client.get_member_contribution(&group_id, &user2), 4500_i128);
+
+    // Verify total group amount and completion
+    let group = client.get_group(&group_id);
+    assert_eq!(group.current_amount, 10000_i128);
+    assert_eq!(group.is_completed, true);
+    assert_eq!(group.member_count, 3);
+}
+
+#[test]
+fn test_get_group_not_found() {
+    let (_, client) = setup_test_env();
+
+    let result = client.try_get_group(&999u64);
+    assert_eq!(result, Err(Ok(SavingsError::PlanNotFound)));
+}
+
+#[test]
+fn test_is_group_member_false() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let non_member = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &5u32, &1u32);
+
+    // Non-member check
+    assert!(!client.is_group_member(&non_member, &group_id));
+}
+
+#[test]
+fn test_creator_is_first_member() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    env.mock_all_auths();
+
+    client.initialize_user(&creator);
+    let group_id = client.create_group_save(&creator, &true, &10000_i128, &5u32, &1u32);
+
+    // Creator should be a member
+    assert!(client.is_group_member(&creator, &group_id));
+
+    // Creator can contribute
+    client.contribute_to_group_save(&creator, &group_id, &5000_i128);
+    assert_eq!(client.get_member_contribution(&group_id, &creator), 5000_i128);
+}
