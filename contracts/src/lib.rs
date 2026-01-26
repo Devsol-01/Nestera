@@ -1,6 +1,7 @@
 #![no_std]
 #![allow(non_snake_case)]
 mod flexi;
+mod group;
 mod lock;
 mod storage_types;
 mod users;
@@ -11,7 +12,7 @@ use soroban_sdk::{
     contract, contractimpl, panic_with_error, symbol_short, xdr::ToXdr, Address, Bytes, BytesN,
     Env, Symbol, Vec,
 };
-pub use storage_types::{DataKey, LockSave, MintPayload, PlanType, SavingsPlan};
+pub use storage_types::{DataKey, GroupSave, LockSave, MintPayload, PlanType, SavingsPlan};
 
 /// Custom error codes for the contract
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -284,7 +285,7 @@ impl NesteraContract {
         flexi::flexi_withdraw(env, user, amount)
     }
 
-  /// VIEW FUNCTION
+    /// VIEW FUNCTION
     pub fn get_flexi_balance(env: Env, user: Address) -> i128 {
         flexi::get_flexi_balance(&env, user).unwrap()
     }
@@ -294,6 +295,87 @@ impl NesteraContract {
         flexi::has_flexi_balance(&env, user)
     }
 
+    /// Creates a new group savings plan.
+    /// The creator becomes the first member of the group.
+    ///
+    /// # Arguments
+    /// * `env` - The contract environment
+    /// * `creator` - The address of the user creating the group
+    /// * `title` - Title/name of the group savings plan
+    /// * `description` - Description of the group savings goal
+    /// * `category` - Category of the group savings
+    /// * `target_amount` - Target amount to save (must be > 0)
+    /// * `contribution_type` - Type of contribution (0 = fixed, 1 = flexible, 2 = percentage)
+    /// * `contribution_amount` - Contribution amount or minimum (must be > 0)
+    /// * `is_public` - Whether the group is public or private
+    /// * `start_time` - Unix timestamp when the group starts
+    /// * `end_time` - Unix timestamp when the group ends
+    ///
+    /// # Returns
+    /// `Ok(u64)` - The unique ID of the created group
+    /// `Err(SavingsError)` - If validation fails
+    pub fn create_group_save(
+        env: Env,
+        creator: Address,
+        title: String,
+        description: String,
+        category: String,
+        target_amount: i128,
+        contribution_type: u8,
+        contribution_amount: i128,
+        is_public: bool,
+        start_time: u64,
+        end_time: u64,
+    ) -> Result<u64, SavingsError> {
+        group::create_group_save(
+            &env,
+            creator,
+            title,
+            description,
+            category,
+            target_amount,
+            contribution_type,
+            contribution_amount,
+            is_public,
+            start_time,
+            end_time,
+        )
+    }
+
+    /// VIEW FUNCTION - Retrieves a group savings plan by ID.
+    ///
+    /// # Arguments
+    /// * `env` - The contract environment
+    /// * `group_id` - The unique ID of the group
+    ///
+    /// # Returns
+    /// `Some(GroupSave)` if the group exists, `None` otherwise
+    pub fn get_group_save(env: Env, group_id: u64) -> Option<crate::storage_types::GroupSave> {
+        group::get_group_save(&env, group_id)
+    }
+
+    /// VIEW FUNCTION - Checks if a group exists.
+    ///
+    /// # Arguments
+    /// * `env` - The contract environment
+    /// * `group_id` - The unique ID of the group
+    ///
+    /// # Returns
+    /// `true` if the group exists, `false` otherwise
+    pub fn group_exists(env: Env, group_id: u64) -> bool {
+        group::group_exists(&env, group_id)
+    }
+
+    /// VIEW FUNCTION - Gets all groups that a user participates in.
+    ///
+    /// # Arguments
+    /// * `env` - The contract environment
+    /// * `user` - The user address
+    ///
+    /// # Returns
+    /// A vector of group IDs the user is involved in
+    pub fn get_user_groups(env: Env, user: Address) -> Vec<u64> {
+        group::get_user_groups(&env, &user)
     // ========== Lock Save Functions ==========
 
     /// Creates a new Lock Save plan for a user

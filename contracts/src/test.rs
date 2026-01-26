@@ -893,6 +893,480 @@ let contract_id = env.register(NesteraContract, ());
 }
 
 // =============================================================================
+// Group Save Tests
+// =============================================================================
+
+#[test]
+fn test_create_group_save_success() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let title = String::from_slice(&env, "Emergency Fund");
+    let description = String::from_slice(&env, "Group emergency savings");
+    let category = String::from_slice(&env, "emergency");
+    let target_amount = 10000i128;
+    let contribution_type = 0u8; // Fixed
+    let contribution_amount = 100i128;
+    let is_public = true;
+    let start_time = 1000u64;
+    let end_time = 2000u64;
+
+    let result = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &target_amount,
+        &contribution_type,
+        &contribution_amount,
+        &is_public,
+        &start_time,
+        &end_time,
+    );
+
+    assert!(result.is_ok());
+    let group_id = result.unwrap();
+    assert_eq!(group_id, 1u64); // First group should have ID 1
+}
+
+#[test]
+fn test_create_group_save_stored_correctly() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let title = String::from_slice(&env, "School Fees");
+    let description = String::from_slice(&env, "Save for school fees");
+    let category = String::from_slice(&env, "education");
+    let target_amount = 50000i128;
+    let contribution_type = 1u8; // Flexible
+    let contribution_amount = 500i128;
+    let is_public = false;
+    let start_time = 5000u64;
+    let end_time = 10000u64;
+
+    let group_id = client
+        .create_group_save(
+            &creator,
+            &title,
+            &description,
+            &category,
+            &target_amount,
+            &contribution_type,
+            &contribution_amount,
+            &is_public,
+            &start_time,
+            &end_time,
+        )
+        .unwrap();
+
+    // Verify the group was stored
+    let retrieved_group = client.get_group_save(&group_id);
+    assert!(retrieved_group.is_some());
+
+    let group = retrieved_group.unwrap();
+    assert_eq!(group.id, group_id);
+    assert_eq!(group.creator, creator);
+    assert_eq!(group.title, title);
+    assert_eq!(group.description, description);
+    assert_eq!(group.category, category);
+    assert_eq!(group.target_amount, target_amount);
+    assert_eq!(group.current_amount, 0i128); // Should start at 0
+    assert_eq!(group.contribution_type, contribution_type);
+    assert_eq!(group.contribution_amount, contribution_amount);
+    assert_eq!(group.is_public, is_public);
+    assert_eq!(group.member_count, 1u32); // Creator is first member
+    assert_eq!(group.start_time, start_time);
+    assert_eq!(group.end_time, end_time);
+    assert_eq!(group.is_completed, false);
+}
+
+#[test]
+fn test_create_group_save_creator_added_to_list() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let title = String::from_slice(&env, "Vacation Fund");
+    let description = String::from_slice(&env, "Save for vacation");
+    let category = String::from_slice(&env, "leisure");
+
+    let group_id = client
+        .create_group_save(
+            &creator,
+            &title,
+            &description,
+            &category,
+            &10000i128,
+            &0u8,
+            &100i128,
+            &true,
+            &1000u64,
+            &2000u64,
+        )
+        .unwrap();
+
+    // Verify creator is in the user's groups list
+    let user_groups = client.get_user_groups(&creator);
+    assert_eq!(user_groups.len(), 1);
+    assert_eq!(user_groups.get(0).unwrap(), group_id);
+}
+
+#[test]
+fn test_create_group_save_auto_increment_ids() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let creator1 = Address::generate(&env);
+    let creator2 = Address::generate(&env);
+
+    let title = String::from_slice(&env, "Test Group");
+    let description = String::from_slice(&env, "Test");
+    let category = String::from_slice(&env, "test");
+
+    let group_id_1 = client
+        .create_group_save(
+            &creator1,
+            &title,
+            &description,
+            &category,
+            &10000i128,
+            &0u8,
+            &100i128,
+            &true,
+            &1000u64,
+            &2000u64,
+        )
+        .unwrap();
+
+    let group_id_2 = client
+        .create_group_save(
+            &creator2,
+            &title,
+            &description,
+            &category,
+            &20000i128,
+            &1u8,
+            &200i128,
+            &false,
+            &1000u64,
+            &2000u64,
+        )
+        .unwrap();
+
+    assert_eq!(group_id_1, 1u64);
+    assert_eq!(group_id_2, 2u64);
+}
+
+#[test]
+fn test_create_group_save_invalid_target_amount() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let title = String::from_slice(&env, "Test");
+    let description = String::from_slice(&env, "Test");
+    let category = String::from_slice(&env, "test");
+
+    // Test with zero target_amount
+    let result = client.try_create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &0i128,
+        &0u8,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+    assert!(result.is_err());
+
+    // Test with negative target_amount
+    let result = client.try_create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &-1000i128,
+        &0u8,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_create_group_save_invalid_contribution_amount() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let title = String::from_slice(&env, "Test");
+    let description = String::from_slice(&env, "Test");
+    let category = String::from_slice(&env, "test");
+
+    // Test with zero contribution_amount
+    let result = client.try_create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u8,
+        &0i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+    assert!(result.is_err());
+
+    // Test with negative contribution_amount
+    let result = client.try_create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u8,
+        &-100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_create_group_save_invalid_timestamps() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let title = String::from_slice(&env, "Test");
+    let description = String::from_slice(&env, "Test");
+    let category = String::from_slice(&env, "test");
+
+    // Test with start_time >= end_time
+    let result = client.try_create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u8,
+        &100i128,
+        &true,
+        &2000u64,
+        &2000u64,
+    );
+    assert!(result.is_err());
+
+    // Test with start_time > end_time
+    let result = client.try_create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u8,
+        &100i128,
+        &true,
+        &3000u64,
+        &2000u64,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_create_group_save_invalid_contribution_type() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let title = String::from_slice(&env, "Test");
+    let description = String::from_slice(&env, "Test");
+    let category = String::from_slice(&env, "test");
+
+    // Test with invalid contribution_type (> 2)
+    let result = client.try_create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &3u8,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_create_group_save_empty_title() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let title = String::from_slice(&env, "");
+    let description = String::from_slice(&env, "Test description");
+    let category = String::from_slice(&env, "test");
+
+    let result = client.try_create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u8,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_create_group_save_empty_description() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let title = String::from_slice(&env, "Test Title");
+    let description = String::from_slice(&env, "");
+    let category = String::from_slice(&env, "test");
+
+    let result = client.try_create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u8,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_create_group_save_empty_category() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let title = String::from_slice(&env, "Test Title");
+    let description = String::from_slice(&env, "Test description");
+    let category = String::from_slice(&env, "");
+
+    let result = client.try_create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u8,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_get_group_save_not_found() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let result = client.get_group_save(&999u64);
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_group_exists() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let title = String::from_slice(&env, "Test");
+    let description = String::from_slice(&env, "Test");
+    let category = String::from_slice(&env, "test");
+
+    let group_id = client
+        .create_group_save(
+            &creator,
+            &title,
+            &description,
+            &category,
+            &10000i128,
+            &0u8,
+            &100i128,
+            &true,
+            &1000u64,
+            &2000u64,
+        )
+        .unwrap();
+
+    assert!(client.group_exists(&group_id));
+    assert!(!client.group_exists(&999u64));
+}
+
+#[test]
+fn test_get_user_groups_multiple() {
+    let (env, client) = setup_test_env();
+    env.mock_all_auths();
+
+    let creator = Address::generate(&env);
+    let title = String::from_slice(&env, "Test");
+    let description = String::from_slice(&env, "Test");
+    let category = String::from_slice(&env, "test");
+
+    // Create multiple groups
+    let group_id_1 = client
+        .create_group_save(
+            &creator,
+            &title,
+            &description,
+            &category,
+            &10000i128,
+            &0u8,
+            &100i128,
+            &true,
+            &1000u64,
+            &2000u64,
+        )
+        .unwrap();
+
+    let group_id_2 = client
+        .create_group_save(
+            &creator,
+            &title,
+            &description,
+            &category,
+            &20000i128,
+            &1u8,
+            &200i128,
+            &false,
+            &1000u64,
+            &2000u64,
+        )
+        .unwrap();
+
+    let user_groups = client.get_user_groups(&creator);
+    assert_eq!(user_groups.len(), 2);
+    assert_eq!(user_groups.get(0).unwrap(), group_id_1);
+    assert_eq!(user_groups.get(1).unwrap(), group_id_2);
+}
 // Lock Save Tests
 // =============================================================================
 
