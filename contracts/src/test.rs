@@ -2,13 +2,13 @@
 extern crate std;
 
 use crate::{
-    MintPayload, NesteraContract, NesteraContractClient, PlanType, SavingsError, SavingsPlan, User, DataKey,flexi
+    flexi, DataKey, MintPayload, NesteraContract, NesteraContractClient, PlanType, SavingsError,
+    SavingsPlan, User,
 };
 use ed25519_dalek::{Signer, SigningKey};
 use soroban_sdk::testutils::{Address as _, Ledger, LedgerInfo};
 use soroban_sdk::{symbol_short, xdr::ToXdr, Address, Bytes, BytesN, Env, String};
 // use std::format;
-
 
 /// Helper function to create a test environment and contract client
 fn setup_test_env() -> (Env, NesteraContractClient<'static>) {
@@ -35,7 +35,6 @@ fn generate_keypair(env: &Env) -> (SigningKey, BytesN<32>) {
     (signing_key, public_key_bytes)
 }
 
-
 fn test_address(id: u8) -> Address {
     let env = Env::default();
 
@@ -49,7 +48,6 @@ fn test_address(id: u8) -> Address {
     // create Address from Bytes (no Env argument!)
     Address::from_string_bytes(&bytes)
 }
-
 
 /// Generate a second keypair (attacker) for testing wrong signer scenarios
 fn generate_attacker_keypair(env: &Env) -> (SigningKey, BytesN<32>) {
@@ -835,8 +833,141 @@ fn test_flexi_invalid_amount() {
     let result = client.try_deposit_flexi(&user, &0);
     assert_eq!(result, Err(Ok(SavingsError::InvalidAmount)));
 }
+// =============================================================================
+// View Function Tests
+// =============================================================================
 
+#[test]
+fn test_view_lock_saves() {
+    let (env, client) = setup_test_env();
+    let (_, admin_public_key) = generate_keypair(&env);
+    client.initialize(&admin_public_key);
+    let user = Address::generate(&env);
 
+    env.mock_all_auths();
+    match client.initialize_user(&user) {
+        _ => {}
+    }
+
+    // Create a Lock Save
+    let lock_until = 2000000;
+    // We can't call `create_savings_plan` with Lock directly because we need to pass strict types?
+    // Actually the helper `create_savings_plan` takes `PlanType`.
+    let _plan_id = client.create_savings_plan(&user, &PlanType::Lock(lock_until), &1000_i128);
+
+    // Test get_user_ongoing_lock_saves
+    let ongoing = client.get_user_ongoing_lock_saves(&user);
+    assert_eq!(ongoing.len(), 1);
+    assert_eq!(ongoing.get(0).unwrap().balance, 1000_i128);
+    assert_eq!(ongoing.get(0).unwrap().locked_until, lock_until);
+
+    // Test get_lock_save
+    let lock_save = client.get_lock_save(&user, &ongoing.get(0).unwrap().plan_id);
+    assert_eq!(lock_save.balance, 1000_i128);
+
+    // Test get_user_matured_lock_saves (empty initially)
+    let matured = client.get_user_matured_lock_saves(&user);
+    assert_eq!(matured.len(), 0);
+
+    // Advance time to maturity
+    set_ledger_timestamp(&env, lock_until + 1);
+
+    // Now it should be matured
+    let matured_after = client.get_user_matured_lock_saves(&user);
+    assert_eq!(matured_after.len(), 1);
+}
+
+#[test]
+fn test_view_goal_saves() {
+    let (env, client) = setup_test_env();
+    let (_, admin_public_key) = generate_keypair(&env);
+    client.initialize(&admin_public_key);
+    let user = Address::generate(&env);
+    env.mock_all_auths();
+    match client.initialize_user(&user) {
+        _ => {}
+    }
+
+    let goal_name = symbol_short!("car");
+    let target = 50000_i128;
+    let _plan_id = client.create_savings_plan(
+        &user,
+        &PlanType::Goal(goal_name.clone(), target, 1),
+        &1000_i128,
+    );
+
+    // Test get_user_live_goal_saves
+    let live = client.get_user_live_goal_saves(&user);
+    assert_eq!(live.len(), 1);
+    let save = live.get(0).unwrap();
+    assert_eq!(save.target_amount, target);
+    assert_eq!(save.goal_name, goal_name);
+    assert_eq!(save.is_completed, false);
+
+    // Test get_goal_save
+    let goal_save = client.get_goal_save(&user, &save.plan_id);
+    assert_eq!(goal_save.balance, 1000_i128);
+
+    // Test completed (empty)
+    let completed = client.get_user_completed_goal_saves(&user);
+    assert_eq!(completed.len(), 0);
+}
+
+#[test]
+fn test_view_group_saves() {
+    let (env, client) = setup_test_env();
+    let (_, admin_public_key) = generate_keypair(&env);
+    client.initialize(&admin_public_key);
+    let user = Address::generate(&env);
+    env.mock_all_auths();
+    match client.initialize_user(&user) {
+        _ => {}
+    }
+
+    let group_id = 999;
+    let target = 100000_i128;
+    let _plan_id = client.create_savings_plan(
+        &user,
+        &PlanType::Group(group_id, true, 1, target),
+        &1000_i128,
+    );
+
+    // Test get_user_live_group_saves
+    let live = client.get_user_live_group_saves(&user);
+    assert_eq!(live.len(), 1);
+    let save = live.get(0).unwrap();
+    assert_eq!(save.group_id, group_id);
+
+    // Test get_group_save
+    let group_save = client.get_group_save(&user, &save.plan_id);
+    assert_eq!(group_save.balance, 1000_i128);
+}
+
+#[test]
+fn test_is_group_member() {
+    let (env, client) = setup_test_env();
+    let (_, admin_public_key) = generate_keypair(&env);
+    client.initialize(&admin_public_key);
+    let user = Address::generate(&env);
+    env.mock_all_auths();
+    match client.initialize_user(&user) {
+        _ => {}
+    }
+
+    let group_id = 123;
+
+    // Initially not a member
+    assert_eq!(client.is_group_member(&group_id, &user), false);
+
+    // Join group (create plan)
+    client.create_savings_plan(&user, &PlanType::Group(group_id, true, 1, 1000), &500);
+
+    // Now should be member
+    assert_eq!(client.is_group_member(&group_id, &user), true);
+
+    // Check contribution
+    assert_eq!(client.get_group_member_contribution(&group_id, &user), 500);
+}
 
 // #[test]
 // fn test_get_flexi_balance_user_not_found() {
@@ -875,14 +1006,12 @@ fn test_get_flexi_balance() {
     assert_eq!(balance, 1000);
 }
 
-
 #[test]
 fn test_get_flexi_balance_user_not_found() {
     let env = Env::default();
     env.mock_all_auths();
 
-let contract_id = env.register(NesteraContract, ());
-
+    let contract_id = env.register(NesteraContract, ());
 
     let client = NesteraContractClient::new(&env, &contract_id);
 
@@ -944,19 +1073,18 @@ fn test_create_group_save_stored_correctly() {
     let start_time = 5000u64;
     let end_time = 10000u64;
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &target_amount,
-            &contribution_type,
-            &contribution_amount,
-            &is_public,
-            &start_time,
-            &end_time,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &target_amount,
+        &contribution_type,
+        &contribution_amount,
+        &is_public,
+        &start_time,
+        &end_time,
+    );
 
     // Verify the group was stored
     let retrieved_group = client.get_group_save(&group_id);
@@ -989,19 +1117,18 @@ fn test_create_group_save_creator_added_to_list() {
     let description = String::from_slice(&env, "Save for vacation");
     let category = String::from_slice(&env, "leisure");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
     // Verify creator is in the user's groups list
     let user_groups = client.get_user_groups(&creator);
@@ -1021,33 +1148,31 @@ fn test_create_group_save_auto_increment_ids() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id_1 = client
-        .create_group_save(
-            &creator1,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id_1 = client.create_group_save(
+        &creator1,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
-    let group_id_2 = client
-        .create_group_save(
-            &creator2,
-            &title,
-            &description,
-            &category,
-            &20000i128,
-            &1u32,
-            &200i128,
-            &false,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id_2 = client.create_group_save(
+        &creator2,
+        &title,
+        &description,
+        &category,
+        &20000i128,
+        &1u32,
+        &200i128,
+        &false,
+        &1000u64,
+        &2000u64,
+    );
 
     assert_eq!(group_id_1, 1u64);
     assert_eq!(group_id_2, 2u64);
@@ -1296,19 +1421,18 @@ fn test_group_exists() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
     assert!(client.group_exists(&group_id));
     assert!(!client.group_exists(&999u64));
@@ -1325,33 +1449,31 @@ fn test_get_user_groups_multiple() {
     let category = String::from_slice(&env, "test");
 
     // Create multiple groups
-    let group_id_1 = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id_1 = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
-    let group_id_2 = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &20000i128,
-            &1u32,
-            &200i128,
-            &false,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id_2 = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &20000i128,
+        &1u32,
+        &200i128,
+        &false,
+        &1000u64,
+        &2000u64,
+    );
 
     let user_groups = client.get_user_groups(&creator);
     assert_eq!(user_groups.len(), 2);
@@ -1367,19 +1489,19 @@ fn test_create_lock_save_success() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     // Initialize user first
     client.initialize_user(&user);
-    
+
     let amount = 1000_i128;
     let duration = 86400u64; // 1 day
-    
+
     let lock_id = client.create_lock_save(&user, &amount, &duration);
     assert_eq!(lock_id, 1);
-    
+
     // Verify the lock save was created correctly
     let lock_save = client.get_lock_save(&lock_id);
     assert_eq!(lock_save.id, lock_id);
@@ -1387,7 +1509,7 @@ fn test_create_lock_save_success() {
     assert_eq!(lock_save.amount, amount);
     assert_eq!(lock_save.interest_rate, 500); // Default 5%
     assert!(!lock_save.is_withdrawn);
-    
+
     // Verify user has the lock save in their list
     let user_locks = client.get_user_lock_saves(&user);
     assert_eq!(user_locks.len(), 1);
@@ -1401,12 +1523,12 @@ fn test_create_lock_save_invalid_amount() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user);
-    
+
     // Should panic with InvalidAmount error
     client.create_lock_save(&user, &0, &86400u64);
 }
@@ -1418,12 +1540,12 @@ fn test_create_lock_save_invalid_duration() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user);
-    
+
     // Should panic with InvalidTimestamp error
     client.create_lock_save(&user, &1000, &0);
 }
@@ -1435,10 +1557,10 @@ fn test_create_lock_save_user_not_found() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     // Don't initialize user - should panic with UserNotFound
     client.create_lock_save(&user, &1000, &86400u64);
 }
@@ -1449,14 +1571,14 @@ fn test_check_matured_lock_not_matured() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user);
-    
+
     let lock_id = client.create_lock_save(&user, &1000, &86400u64);
-    
+
     // Should not be matured immediately
     assert!(!client.check_matured_lock(&lock_id));
 }
@@ -1467,20 +1589,20 @@ fn test_check_matured_lock_matured() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     // Set initial timestamp
     set_ledger_timestamp(&env, 1000);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user);
-    
+
     let lock_id = client.create_lock_save(&user, &1000, &100u64);
-    
+
     // Advance time past maturity
     set_ledger_timestamp(&env, 1200); // 1000 + 100 + buffer
-    
+
     assert!(client.check_matured_lock(&lock_id));
 }
 
@@ -1490,7 +1612,7 @@ fn test_check_matured_lock_nonexistent() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     // Non-existent lock should return false
     assert!(!client.check_matured_lock(&999));
 }
@@ -1501,23 +1623,23 @@ fn test_withdraw_lock_save_success() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     // Set initial timestamp
     set_ledger_timestamp(&env, 1000);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user);
-    
+
     let lock_id = client.create_lock_save(&user, &1000, &100u64);
-    
+
     // Advance time past maturity
     set_ledger_timestamp(&env, 1200);
-    
+
     let amount = client.withdraw_lock_save(&user, &lock_id);
     assert!(amount >= 1000); // Should include some interest
-    
+
     // Verify lock save is marked as withdrawn
     let lock_save = client.get_lock_save(&lock_id);
     assert!(lock_save.is_withdrawn);
@@ -1530,14 +1652,14 @@ fn test_withdraw_lock_save_not_matured() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user);
-    
+
     let lock_id = client.create_lock_save(&user, &1000, &86400u64);
-    
+
     // Should panic with TooEarly error
     client.withdraw_lock_save(&user, &lock_id);
 }
@@ -1549,23 +1671,23 @@ fn test_withdraw_lock_save_already_withdrawn() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     // Set initial timestamp
     set_ledger_timestamp(&env, 1000);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user);
-    
+
     let lock_id = client.create_lock_save(&user, &1000, &100u64);
-    
+
     // Advance time past maturity
     set_ledger_timestamp(&env, 1200);
-    
+
     // First withdrawal should succeed
     client.withdraw_lock_save(&user, &lock_id);
-    
+
     // Second withdrawal should panic with PlanCompleted
     client.withdraw_lock_save(&user, &lock_id);
 }
@@ -1577,22 +1699,22 @@ fn test_withdraw_lock_save_unauthorized() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     // Set initial timestamp
     set_ledger_timestamp(&env, 1000);
-    
+
     let user1 = Address::generate(&env);
     let user2 = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user1);
     client.initialize_user(&user2);
-    
+
     let lock_id = client.create_lock_save(&user1, &1000, &100u64);
-    
+
     // Advance time past maturity
     set_ledger_timestamp(&env, 1200);
-    
+
     // User2 trying to withdraw user1's lock save should panic with Unauthorized
     client.withdraw_lock_save(&user2, &lock_id);
 }
@@ -1604,12 +1726,12 @@ fn test_withdraw_lock_save_plan_not_found() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user);
-    
+
     // Should panic with PlanNotFound
     client.withdraw_lock_save(&user, &999);
 }
@@ -1621,7 +1743,7 @@ fn test_get_lock_save_plan_not_found() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     // Should panic with PlanNotFound
     client.get_lock_save(&999);
 }
@@ -1632,23 +1754,23 @@ fn test_multiple_lock_saves_unique_ids() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user);
-    
+
     let lock_id1 = client.create_lock_save(&user, &1000, &86400u64);
     let lock_id2 = client.create_lock_save(&user, &2000, &172800u64);
-    
+
     assert_ne!(lock_id1, lock_id2);
     assert_eq!(lock_id1, 1);
     assert_eq!(lock_id2, 2);
-    
+
     // Verify user has both lock saves
     let user_locks = client.get_user_lock_saves(&user);
     assert_eq!(user_locks.len(), 2);
-    
+
     let mut lock_ids = std::vec::Vec::new();
     for i in 0..user_locks.len() {
         lock_ids.push(user_locks.get(i).unwrap());
@@ -1663,18 +1785,18 @@ fn test_lock_save_stores_correct_times() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     let start_time = 1000u64;
     let duration = 86400u64;
     set_ledger_timestamp(&env, start_time);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user);
-    
+
     let lock_id = client.create_lock_save(&user, &1000, &duration);
-    
+
     let lock_save = client.get_lock_save(&lock_id);
     assert_eq!(lock_save.start_time, start_time);
     assert_eq!(lock_save.maturity_time, start_time + duration);
@@ -1686,12 +1808,12 @@ fn test_get_user_lock_saves_empty() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user);
-    
+
     // User with no lock saves should return empty vector
     let user_locks = client.get_user_lock_saves(&user);
     assert_eq!(user_locks.len(), 0);
@@ -1703,30 +1825,30 @@ fn test_lock_save_balance_update() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     // Set initial timestamp
     set_ledger_timestamp(&env, 1000);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user);
-    
+
     let initial_amount = 1000_i128;
     let lock_id = client.create_lock_save(&user, &initial_amount, &(365 * 24 * 3600)); // 1 year
-    
+
     // Advance time by 6 months
     set_ledger_timestamp(&env, 1000 + (365 * 24 * 3600 / 2));
-    
+
     // Verify lock is not matured yet
     assert!(!client.check_matured_lock(&lock_id));
-    
+
     // Advance time to full maturity
     set_ledger_timestamp(&env, 1000 + (365 * 24 * 3600) + 1);
-    
+
     // Now it should be matured
     assert!(client.check_matured_lock(&lock_id));
-    
+
     // Withdraw and verify interest was calculated
     let final_amount = client.withdraw_lock_save(&user, &lock_id);
     assert!(final_amount > initial_amount); // Should have earned interest
@@ -1738,31 +1860,31 @@ fn test_lock_save_wrong_plan_type() {
     let (_, admin_public_key) = generate_keypair(&env);
 
     client.initialize(&admin_public_key);
-    
+
     let user = Address::generate(&env);
     env.mock_all_auths();
-    
+
     client.initialize_user(&user);
-    
+
     // Create a regular savings plan
     let savings_plan_id = client.create_savings_plan(&user, &PlanType::Flexi, &1000);
-    
+
     // Create a lock save
     let lock_id = client.create_lock_save(&user, &1000, &86400u64);
-    
+
     // These should be different types of plans stored separately
     // The savings plan ID and lock save ID can be the same since they're in different storage spaces
-    
+
     // Verify lock save exists and has correct data
     let lock_save = client.get_lock_save(&lock_id);
     assert_eq!(lock_save.id, lock_id);
     assert_eq!(lock_save.amount, 1000);
-    
+
     // Verify savings plan exists and has correct data
     let savings_plan = client.get_savings_plan(&user, &savings_plan_id).unwrap();
     assert_eq!(savings_plan.plan_id, savings_plan_id);
     assert_eq!(savings_plan.balance, 1000);
-    
+
     // They are different types of plans even if they have the same ID
     // Lock saves are stored in DataKey::LockSave(id)
     // Savings plans are stored in DataKey::SavingsPlan(user, id)
@@ -1772,7 +1894,7 @@ fn test_lock_save_wrong_plan_type() {
 fn test_xdr_compatibility_lock_save() {
     let env = Env::default();
     let user = Address::generate(&env);
-    
+
     let lock_save = crate::LockSave {
         id: 1,
         owner: user,
@@ -1782,11 +1904,11 @@ fn test_xdr_compatibility_lock_save() {
         maturity_time: 2000,
         is_withdrawn: false,
     };
-    
+
     // Test XDR serialization/deserialization
     let xdr_bytes = lock_save.to_xdr(&env);
     assert!(!xdr_bytes.is_empty());
-    
+
     // This verifies the struct can be serialized to XDR format
     // which is required for Soroban storage
 }
@@ -1812,19 +1934,18 @@ fn test_join_group_save_success() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &true, // public
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true, // public
+        &1000u64,
+        &2000u64,
+    );
 
     // Joiner joins the group
     client.join_group_save(&joiner, &group_id);
@@ -1863,19 +1984,18 @@ fn test_join_group_save_user_not_found() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
     // Joiner (not initialized) tries to join
     let result = client.try_join_group_save(&joiner, &group_id);
@@ -1911,19 +2031,18 @@ fn test_join_group_save_private_group() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &false, // private
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &false, // private
+        &1000u64,
+        &2000u64,
+    );
 
     // Joiner tries to join private group
     let result = client.try_join_group_save(&joiner, &group_id);
@@ -1944,19 +2063,18 @@ fn test_join_group_save_already_member() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
     // Creator tries to join again
     let result = client.try_join_group_save(&creator, &group_id);
@@ -1976,19 +2094,18 @@ fn test_contribute_to_group_save_success() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
     // Creator contributes
     client.contribute_to_group_save(&creator, &group_id, &500i128);
@@ -2016,19 +2133,18 @@ fn test_contribute_to_group_save_multiple_contributions() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
     // Multiple contributions
     client.contribute_to_group_save(&creator, &group_id, &300i128);
@@ -2057,19 +2173,18 @@ fn test_contribute_to_group_save_goal_reached() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &1000i128, // low target
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &1000i128, // low target
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
     // Contribute exactly the target amount
     client.contribute_to_group_save(&creator, &group_id, &1000i128);
@@ -2093,19 +2208,18 @@ fn test_contribute_to_group_save_exceeds_goal() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &1000i128,
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &1000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
     // Contribute more than target
     client.contribute_to_group_save(&creator, &group_id, &1500i128);
@@ -2129,19 +2243,18 @@ fn test_contribute_to_group_save_invalid_amount() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
     // Try to contribute zero
     let result = client.try_contribute_to_group_save(&creator, &group_id, &0i128);
@@ -2168,19 +2281,18 @@ fn test_contribute_to_group_save_not_member() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
     // Non-member tries to contribute
     let result = client.try_contribute_to_group_save(&non_member, &group_id, &500i128);
@@ -2218,19 +2330,18 @@ fn test_multiple_members_contribute() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
     // Members join
     client.join_group_save(&member1, &group_id);
@@ -2242,9 +2353,18 @@ fn test_multiple_members_contribute() {
     client.contribute_to_group_save(&member2, &group_id, &3000i128);
 
     // Verify individual contributions
-    assert_eq!(client.get_member_contribution(&group_id, &creator), 1000i128);
-    assert_eq!(client.get_member_contribution(&group_id, &member1), 2000i128);
-    assert_eq!(client.get_member_contribution(&group_id, &member2), 3000i128);
+    assert_eq!(
+        client.get_member_contribution(&group_id, &creator),
+        1000i128
+    );
+    assert_eq!(
+        client.get_member_contribution(&group_id, &member1),
+        2000i128
+    );
+    assert_eq!(
+        client.get_member_contribution(&group_id, &member2),
+        3000i128
+    );
 
     // Verify total group amount
     let group = client.get_group_save(&group_id).unwrap();
@@ -2272,19 +2392,18 @@ fn test_get_group_members() {
     let description = String::from_slice(&env, "Test");
     let category = String::from_slice(&env, "test");
 
-    let group_id = client
-        .create_group_save(
-            &creator,
-            &title,
-            &description,
-            &category,
-            &10000i128,
-            &0u32,
-            &100i128,
-            &true,
-            &1000u64,
-            &2000u64,
-        );
+    let group_id = client.create_group_save(
+        &creator,
+        &title,
+        &description,
+        &category,
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
 
     // Initially, only creator is a member
     let members = client.get_group_members(&group_id);
@@ -2298,4 +2417,3 @@ fn test_get_group_members() {
     let members = client.get_group_members(&group_id);
     assert_eq!(members.len(), 2);
 }
-

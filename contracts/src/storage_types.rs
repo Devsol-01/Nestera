@@ -140,3 +140,41 @@ pub struct MintPayload {
     /// Expiry duration in seconds (signature valid for timestamp + expiry_duration)
     pub expiry_duration: u64,
 }
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]
+pub struct LockSave {
+    pub plan_id: u64,
+    pub balance: i128,
+    pub start_time: u64,
+    pub locked_until: u64,
+    pub interest_rate: u32,
+    pub is_withdrawn: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]
+pub struct GoalSave {
+    pub plan_id: u64,
+    pub balance: i128,
+    pub target_amount: i128,
+    pub start_time: u64,
+    pub interest_rate: u32,
+    pub is_completed: bool,
+    pub contribution_type: u32,
+    pub goal_name: Symbol,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]
+pub struct GroupSave {
+    pub plan_id: u64,
+    pub balance: i128,
+    pub target_amount: i128,
+    pub start_time: u64,
+    pub interest_rate: u32,
+    pub is_completed: bool,
+    pub is_public: bool,
+    pub contribution_type: u32,
+    pub group_id: u64,
+}

@@ -6,6 +6,7 @@ mod group;
 mod lock;
 mod storage_types;
 mod users;
+mod views;
 
 pub use crate::errors::SavingsError;
 pub use crate::storage_types::User;
@@ -13,7 +14,10 @@ use soroban_sdk::{
     contract, contractimpl, panic_with_error, symbol_short, xdr::ToXdr, Address, Bytes, BytesN,
     Env, String, Symbol, Vec,
 };
-pub use storage_types::{DataKey, GoalSave, GroupSave, LockSave, MintPayload, PlanType, SavingsPlan};
+pub use storage_types::{
+    DataKey, GoalSave, GoalSave, GroupSave, GroupSave, LockSave, LockSave, MintPayload, PlanType,
+    SavingsPlan,
+};
 
 /// Custom error codes for the contract
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -284,6 +288,84 @@ impl NesteraContract {
     /// Public entry point to withdraw from Flexi Save
     pub fn withdraw_flexi(env: Env, user: Address, amount: i128) -> Result<(), SavingsError> {
         flexi::flexi_withdraw(env, user, amount)
+    }
+
+    // =======================================================================
+    // View Functions
+    // =======================================================================
+
+    // Lock Save Views
+    pub fn get_user_ongoing_lock_saves(
+        env: Env,
+        user: Address,
+    ) -> Result<Vec<LockSave>, SavingsError> {
+        views::get_user_ongoing_lock_saves(&env, user)
+    }
+
+    pub fn get_user_matured_lock_saves(
+        env: Env,
+        user: Address,
+    ) -> Result<Vec<LockSave>, SavingsError> {
+        views::get_user_matured_lock_saves(&env, user)
+    }
+
+    pub fn get_lock_save(env: Env, user: Address, lock_id: u64) -> Result<LockSave, SavingsError> {
+        views::get_lock_save(&env, user, lock_id)
+    }
+
+    // Goal Save Views
+    pub fn get_user_live_goal_saves(
+        env: Env,
+        user: Address,
+    ) -> Result<Vec<GoalSave>, SavingsError> {
+        views::get_user_live_goal_saves(&env, user)
+    }
+
+    pub fn get_user_completed_goal_saves(
+        env: Env,
+        user: Address,
+    ) -> Result<Vec<GoalSave>, SavingsError> {
+        views::get_user_completed_goal_saves(&env, user)
+    }
+
+    pub fn get_goal_save(env: Env, user: Address, goal_id: u64) -> Result<GoalSave, SavingsError> {
+        views::get_goal_save(&env, user, goal_id)
+    }
+
+    // Group Save Views
+    pub fn get_user_live_group_saves(
+        env: Env,
+        user: Address,
+    ) -> Result<Vec<GroupSave>, SavingsError> {
+        views::get_user_live_group_saves(&env, user)
+    }
+
+    pub fn get_user_completed_group_saves(
+        env: Env,
+        user: Address,
+    ) -> Result<Vec<GroupSave>, SavingsError> {
+        views::get_user_completed_group_saves(&env, user)
+    }
+
+    pub fn get_group_save(
+        env: Env,
+        user: Address,
+        group_id: u64,
+    ) -> Result<GroupSave, SavingsError> {
+        views::get_group_save(&env, user, group_id)
+    }
+
+    // Member Views
+    pub fn is_group_member(env: Env, group_id: u64, user: Address) -> Result<bool, SavingsError> {
+        views::is_group_member(&env, group_id, user)
+    }
+
+    pub fn get_group_member_contribution(
+        env: Env,
+        group_id: u64,
+        user: Address,
+    ) -> Result<i128, SavingsError> {
+        views::get_group_member_contribution(&env, group_id, user)
     }
 
     /// VIEW FUNCTION
