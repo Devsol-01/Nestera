@@ -15,8 +15,8 @@ use soroban_sdk::{
     Env, String, Symbol, Vec,
 };
 pub use storage_types::{
-    DataKey, GoalSave, GoalSaveView, GroupSave, GroupSaveView, LockSave, LockSaveView, MintPayload, PlanType,
-    SavingsPlan,
+    DataKey, GoalSave, GoalSaveView, GroupSave, GroupSaveView, LockSave, LockSaveView, MintPayload,
+    PlanType, SavingsPlan,
 };
 
 /// Custom error codes for the contract
@@ -309,7 +309,11 @@ impl NesteraContract {
         views::get_user_matured_lock_saves(&env, user)
     }
 
-    pub fn get_lock_save(env: Env, user: Address, lock_id: u64) -> Result<LockSaveView, SavingsError> {
+    pub fn get_lock_save(
+        env: Env,
+        user: Address,
+        lock_id: u64,
+    ) -> Result<LockSaveView, SavingsError> {
         views::get_lock_save(&env, user, lock_id)
     }
 
@@ -328,7 +332,11 @@ impl NesteraContract {
         views::get_user_completed_goal_saves(&env, user)
     }
 
-    pub fn get_goal_save(env: Env, user: Address, goal_id: u64) -> Result<GoalSaveView, SavingsError> {
+    pub fn get_goal_save(
+        env: Env,
+        user: Address,
+        goal_id: u64,
+    ) -> Result<GoalSaveView, SavingsError> {
         views::get_goal_save(&env, user, goal_id)
     }
 
@@ -433,7 +441,10 @@ impl NesteraContract {
     ///
     /// # Returns
     /// `Some(GroupSave)` if the group exists, `None` otherwise
-    pub fn get_group_save_detail(env: Env, group_id: u64) -> Option<crate::storage_types::GroupSave> {
+    pub fn get_group_save_detail(
+        env: Env,
+        group_id: u64,
+    ) -> Option<crate::storage_types::GroupSave> {
         group::get_group_save(&env, group_id)
     }
 
@@ -630,11 +641,15 @@ impl NesteraContract {
     // ========== Admin Control Functions ==========
 
     /// Sets or updates the admin address
-    pub fn set_admin(env: Env, current_admin: Address, new_admin: Address) -> Result<(), SavingsError> {
+    pub fn set_admin(
+        env: Env,
+        current_admin: Address,
+        new_admin: Address,
+    ) -> Result<(), SavingsError> {
         current_admin.require_auth();
 
         let stored_admin: Option<Address> = env.storage().instance().get(&DataKey::Admin);
-        
+
         if let Some(admin) = stored_admin {
             if admin != current_admin {
                 return Err(SavingsError::Unauthorized);
@@ -643,10 +658,8 @@ impl NesteraContract {
 
         env.storage().instance().set(&DataKey::Admin, &new_admin);
 
-        env.events().publish(
-            (soroban_sdk::symbol_short!("set_admin"),),
-            new_admin,
-        );
+        env.events()
+            .publish((soroban_sdk::symbol_short!("set_admin"),), new_admin);
 
         Ok(())
     }
@@ -662,7 +675,7 @@ impl NesteraContract {
         admin.require_auth();
 
         let stored_admin: Option<Address> = env.storage().instance().get(&DataKey::Admin);
-        
+
         if let Some(admin_addr) = stored_admin {
             if admin_addr != admin {
                 return Err(SavingsError::Unauthorized);
@@ -675,9 +688,15 @@ impl NesteraContract {
             return Err(SavingsError::InvalidAmount);
         }
 
-        env.storage().persistent().set(&DataKey::MinimumDeposit, &minimum_deposit);
-        env.storage().persistent().set(&DataKey::WithdrawalFee, &withdrawal_fee);
-        env.storage().persistent().set(&DataKey::PlatformFee, &platform_fee);
+        env.storage()
+            .persistent()
+            .set(&DataKey::MinimumDeposit, &minimum_deposit);
+        env.storage()
+            .persistent()
+            .set(&DataKey::WithdrawalFee, &withdrawal_fee);
+        env.storage()
+            .persistent()
+            .set(&DataKey::PlatformFee, &platform_fee);
 
         env.events().publish(
             (soroban_sdk::symbol_short!("settings"),),
@@ -692,7 +711,7 @@ impl NesteraContract {
         admin.require_auth();
 
         let stored_admin: Option<Address> = env.storage().instance().get(&DataKey::Admin);
-        
+
         if let Some(admin_addr) = stored_admin {
             if admin_addr != admin {
                 return Err(SavingsError::Unauthorized);
@@ -703,10 +722,8 @@ impl NesteraContract {
 
         env.storage().persistent().set(&DataKey::Paused, &true);
 
-        env.events().publish(
-            (soroban_sdk::symbol_short!("paused"),),
-            admin,
-        );
+        env.events()
+            .publish((soroban_sdk::symbol_short!("paused"),), admin);
 
         Ok(())
     }
@@ -716,7 +733,7 @@ impl NesteraContract {
         admin.require_auth();
 
         let stored_admin: Option<Address> = env.storage().instance().get(&DataKey::Admin);
-        
+
         if let Some(admin_addr) = stored_admin {
             if admin_addr != admin {
                 return Err(SavingsError::Unauthorized);
@@ -727,10 +744,8 @@ impl NesteraContract {
 
         env.storage().persistent().set(&DataKey::Paused, &false);
 
-        env.events().publish(
-            (soroban_sdk::symbol_short!("unpaused"),),
-            admin,
-        );
+        env.events()
+            .publish((soroban_sdk::symbol_short!("unpaused"),), admin);
 
         Ok(())
     }
@@ -740,7 +755,7 @@ impl NesteraContract {
         admin.require_auth();
 
         let stored_admin: Option<Address> = env.storage().instance().get(&DataKey::Admin);
-        
+
         if let Some(admin_addr) = stored_admin {
             if admin_addr != admin {
                 return Err(SavingsError::Unauthorized);
@@ -753,10 +768,8 @@ impl NesteraContract {
             return Err(SavingsError::InvalidAmount);
         }
 
-        env.events().publish(
-            (soroban_sdk::symbol_short!("emerg_wd"),),
-            (admin, amount),
-        );
+        env.events()
+            .publish((soroban_sdk::symbol_short!("emerg_wd"),), (admin, amount));
 
         Ok(())
     }
@@ -771,15 +784,18 @@ impl NesteraContract {
 
     /// Gets the current platform settings
     pub fn get_platform_settings(env: Env) -> (i128, i128, i128) {
-        let minimum_deposit = env.storage()
+        let minimum_deposit = env
+            .storage()
             .persistent()
             .get(&DataKey::MinimumDeposit)
             .unwrap_or(0);
-        let withdrawal_fee = env.storage()
+        let withdrawal_fee = env
+            .storage()
             .persistent()
             .get(&DataKey::WithdrawalFee)
             .unwrap_or(0);
-        let platform_fee = env.storage()
+        let platform_fee = env
+            .storage()
             .persistent()
             .get(&DataKey::PlatformFee)
             .unwrap_or(0);

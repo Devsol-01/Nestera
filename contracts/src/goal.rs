@@ -249,7 +249,7 @@ mod tests {
         let goal_id = client.create_goal_save(&user, &goal_name, &target, &initial);
         assert_eq!(goal_id, 1);
 
-        let goal_save = client.get_goal_save(&goal_id);
+        let goal_save = client.get_goal_save_detail(&goal_id);
         assert_eq!(goal_save.owner, user);
         assert_eq!(goal_save.target_amount, target);
         assert_eq!(goal_save.current_amount, initial);
@@ -272,7 +272,7 @@ mod tests {
         let goal_id = client.create_goal_save(&user, &goal_name, &target, &initial);
         client.deposit_to_goal_save(&user, &goal_id, &2000);
 
-        let goal_save = client.get_goal_save(&goal_id);
+        let goal_save = client.get_goal_save_detail(&goal_id);
         assert_eq!(goal_save.current_amount, 3000);
         assert!(!goal_save.is_completed);
     }
@@ -292,7 +292,7 @@ mod tests {
         let goal_id = client.create_goal_save(&user, &goal_name, &target, &initial);
         client.deposit_to_goal_save(&user, &goal_id, &2000);
 
-        let goal_save = client.get_goal_save(&goal_id);
+        let goal_save = client.get_goal_save_detail(&goal_id);
         assert_eq!(goal_save.current_amount, 5000);
         assert!(goal_save.is_completed);
     }
@@ -311,13 +311,13 @@ mod tests {
 
         let goal_id = client.create_goal_save(&user, &goal_name, &target, &initial);
 
-        let goal_save = client.get_goal_save(&goal_id);
+        let goal_save = client.get_goal_save_detail(&goal_id);
         assert!(goal_save.is_completed);
 
         let amount = client.withdraw_completed_goal_save(&user, &goal_id);
         assert_eq!(amount, 1000);
 
-        let goal_save_after = client.get_goal_save(&goal_id);
+        let goal_save_after = client.get_goal_save_detail(&goal_id);
         assert!(goal_save_after.is_withdrawn);
     }
 
@@ -391,7 +391,7 @@ mod tests {
         let goal_id = client.create_goal_save(&user, &goal_name, &target, &initial);
         client.break_goal_save(&user, &goal_id);
 
-        let goal_save = client.get_goal_save(&goal_id);
+        let goal_save = client.get_goal_save_detail(&goal_id);
         assert!(goal_save.is_withdrawn);
 
         let user_goals = client.get_user_goal_saves(&user);
@@ -458,12 +458,10 @@ mod tests {
 
         env.mock_all_auths();
 
-
         let goal_name = Symbol::new(&env, "nouser");
         let target = 5000i128;
         let initial = 1000i128;
 
-     
         client.create_goal_save(&user, &goal_name, &target, &initial);
     }
 }

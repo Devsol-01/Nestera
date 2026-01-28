@@ -83,11 +83,7 @@ pub fn get_flexi_balance(env: &Env, user: Address) -> Result<i128, SavingsError>
 
     // 2. Read flexi balance (default to 0)
     let flexi_key = DataKey::FlexiBalance(user);
-    let balance = env
-        .storage()
-        .persistent()
-        .get(&flexi_key)
-        .unwrap_or(0i128);
+    let balance = env.storage().persistent().get(&flexi_key).unwrap_or(0i128);
 
     Ok(balance)
 }
@@ -96,11 +92,7 @@ pub fn get_flexi_balance(env: &Env, user: Address) -> Result<i128, SavingsError>
 /// This function does not mutate storage.
 pub fn has_flexi_balance(env: &Env, user: Address) -> bool {
     let flexi_key = DataKey::FlexiBalance(user);
-    let balance = env
-        .storage()
-        .persistent()
-        .get(&flexi_key)
-        .unwrap_or(0i128);
+    let balance = env.storage().persistent().get(&flexi_key).unwrap_or(0i128);
 
     balance > 0
 }
