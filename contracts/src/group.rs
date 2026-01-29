@@ -456,3 +456,170 @@ pub fn get_group_members(env: &Env, group_id: u64) -> Vec<Address> {
         .get(&members_key)
         .unwrap_or(Vec::new(env))
 }
+
+/// Allows a user to break or leave a group savings plan before it is completed.
+///
+/// This function enables users to exit groups safely. When a user leaves:
+/// - They are removed from the group members list
+/// - Their contribution is refunded to their total balance
+/// - The group's current_amount is decreased by their contribution
+/// - The group's member_count is decremented
+/// - Their UserGroupSaves list is updated to remove this group
+/// - Their SavingsPlan for this group is updated
+///
+/// # Arguments
+/// * `env` - The contract environment
+/// * `user` - The address of the user leaving the group
+/// * `group_id` - The unique ID of the group to leave
+///
+/// # Returns
+/// `Ok(())` on success
+/// `Err(SavingsError)` if:
+/// - User doesn't exist
+/// - Group doesn't exist
+/// - User is not a member of the group
+/// - Group is already completed
+///
+/// # Examples
+/// ```ignore
+/// break_group_save(&env, user_address, group_id)?;
+/// ```
+pub fn break_group_save(env: &Env, user: Address, group_id: u64) -> Result<(), SavingsError> {
+    // Ensure user exists
+    if !users::user_exists(env, &user) {
+        return Err(SavingsError::UserNotFound);
+    }
+
+    // Fetch the group
+    let group_key = DataKey::GroupSave(group_id);
+    let mut group: GroupSave = env
+        .storage()
+        .persistent()
+        .get(&group_key)
+        .ok_or(SavingsError::PlanNotFound)?;
+
+    // Check that the group is not already completed
+    if group.is_completed {
+        return Err(SavingsError::PlanCompleted);
+    }
+
+    // Get the members list
+    let members_key = DataKey::GroupMembers(group_id);
+    let members: Vec<Address> = env
+        .storage()
+        .persistent()
+        .get(&members_key)
+        .ok_or(SavingsError::NotGroupMember)?;
+
+    // Check if user is a member and get their index
+    let mut user_index: Option<u32> = None;
+    for i in 0..members.len() {
+        if let Some(member) = members.get(i) {
+            if member == user {
+                user_index = Some(i);
+                break;
+            }
+        }
+    }
+
+    // If user is not a member, return error
+    if user_index.is_none() {
+        return Err(SavingsError::NotGroupMember);
+    }
+
+    // Get user's contribution to calculate refund
+    let contribution_key = DataKey::GroupMemberContribution(group_id, user.clone());
+    let user_contribution: i128 = env
+        .storage()
+        .persistent()
+        .get(&contribution_key)
+        .unwrap_or(0i128);
+
+    // Remove user from members list by creating a new vector without them
+    let mut new_members = Vec::new(env);
+    for i in 0..members.len() {
+        if Some(i) != user_index {
+            if let Some(member) = members.get(i) {
+                new_members.push_back(member);
+            }
+        }
+    }
+
+    // Update members list
+    env.storage().persistent().set(&members_key, &new_members);
+
+    // Decrement member count
+    group.member_count = group.member_count.saturating_sub(1);
+
+    // Update group current_amount by removing user's contribution
+    group.current_amount = group.current_amount.saturating_sub(user_contribution);
+
+    // Save updated group
+    env.storage().persistent().set(&group_key, &group);
+
+    // Remove user's contribution record
+    env.storage().persistent().remove(&contribution_key);
+
+    // Update UserGroupSaves to remove this group_id
+    remove_group_from_user_list(env, &user, group_id)?;
+
+    // Update or remove the user's SavingsPlan for this group
+    let plan_key = DataKey::SavingsPlan(user.clone(), group_id);
+    env.storage().persistent().remove(&plan_key);
+
+    // Handle partial refund - add the contribution back to user's total balance
+    if user_contribution > 0 {
+        let user_key = DataKey::User(user.clone());
+        if let Some(mut user_data) = env
+            .storage()
+            .persistent()
+            .get::<DataKey, crate::storage_types::User>(&user_key)
+        {
+            user_data.total_balance += user_contribution;
+            env.storage().persistent().set(&user_key, &user_data);
+        }
+    }
+
+    // Emit event for leaving group
+    env.events()
+        .publish((soroban_sdk::symbol_short!("grp_left"), user), group_id);
+
+    Ok(())
+}
+
+/// Helper function to remove a group ID from a user's list of groups.
+///
+/// # Arguments
+/// * `env` - The contract environment
+/// * `user` - The user address
+/// * `group_id` - The group ID to remove
+///
+/// # Returns
+/// `Ok(())` on success
+fn remove_group_from_user_list(
+    env: &Env,
+    user: &Address,
+    group_id: u64,
+) -> Result<(), SavingsError> {
+    let key = DataKey::UserGroupSaves(user.clone());
+    let groups: Vec<u64> = env
+        .storage()
+        .persistent()
+        .get(&key)
+        .unwrap_or(Vec::new(env));
+
+    // Create a new vector without the specified group_id
+    let mut new_groups = Vec::new(env);
+    for i in 0..groups.len() {
+        if let Some(gid) = groups.get(i) {
+            if gid != group_id {
+                new_groups.push_back(gid);
+            }
+        }
+    }
+
+    // Update storage with the new list
+    env.storage().persistent().set(&key, &new_groups);
+
+    Ok(())
+}

@@ -2417,3 +2417,366 @@ fn test_get_group_members() {
     let members = client.get_group_members(&group_id);
     assert_eq!(members.len(), 2);
 }
+
+// =============================================================================
+// Break/Leave Group Save Tests
+// =============================================================================
+
+#[test]
+fn test_break_group_save_success() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let member1 = Address::generate(&env);
+
+    env.mock_all_auths();
+
+    // Initialize users
+    client.initialize_user(&creator);
+    client.initialize_user(&member1);
+
+    // Create a group
+    let group_id = client.create_group_save(
+        &creator,
+        &String::from_str(&env, "Savings Group"),
+        &String::from_str(&env, "Group savings plan"),
+        &String::from_str(&env, "education"),
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+
+    // Member joins
+    client.join_group_save(&member1, &group_id);
+
+    // Member contributes
+    client.contribute_to_group_save(&member1, &group_id, &500i128);
+
+    // Get group state before leaving
+    let group_before = client.get_group_save_detail(&group_id).unwrap();
+    assert_eq!(group_before.member_count, 2);
+    assert_eq!(group_before.current_amount, 500);
+
+    // Member leaves the group
+    client.break_group_save(&member1, &group_id);
+
+    // Verify group state after leaving
+    let group_after = client.get_group_save_detail(&group_id).unwrap();
+    assert_eq!(group_after.member_count, 1);
+    assert_eq!(group_after.current_amount, 0);
+
+    // Verify member is removed from members list
+    let members = client.get_group_members(&group_id);
+    assert_eq!(members.len(), 1);
+    assert_eq!(members.get(0).unwrap(), creator);
+
+    // Verify member's contribution is removed
+    let contribution = client.get_member_contribution(&group_id, &member1);
+    assert_eq!(contribution, 0);
+}
+
+#[test]
+fn test_break_group_save_updates_user_groups_list() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let member1 = Address::generate(&env);
+
+    env.mock_all_auths();
+
+    // Initialize users
+    client.initialize_user(&creator);
+    client.initialize_user(&member1);
+
+    // Create a group
+    let group_id = client.create_group_save(
+        &creator,
+        &String::from_str(&env, "Savings Group"),
+        &String::from_str(&env, "Group savings plan"),
+        &String::from_str(&env, "education"),
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+
+    // Member joins
+    client.join_group_save(&member1, &group_id);
+
+    // Verify member is in the group
+    let user_groups_before = client.get_user_groups(&member1);
+    assert_eq!(user_groups_before.len(), 1);
+    assert_eq!(user_groups_before.get(0).unwrap(), group_id);
+
+    // Member leaves
+    client.break_group_save(&member1, &group_id);
+
+    // Verify member is removed from user groups list
+    let user_groups_after = client.get_user_groups(&member1);
+    assert_eq!(user_groups_after.len(), 0);
+}
+
+#[test]
+fn test_break_group_save_refunds_contribution() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let member1 = Address::generate(&env);
+
+    env.mock_all_auths();
+
+    // Initialize users
+    client.initialize_user(&creator);
+    client.initialize_user(&member1);
+
+    // Create a group
+    let group_id = client.create_group_save(
+        &creator,
+        &String::from_str(&env, "Savings Group"),
+        &String::from_str(&env, "Group savings plan"),
+        &String::from_str(&env, "education"),
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+
+    // Member joins
+    client.join_group_save(&member1, &group_id);
+
+    // Member contributes
+    let contribution_amount = 500i128;
+    client.contribute_to_group_save(&member1, &group_id, &contribution_amount);
+
+    // Verify contribution was recorded
+    let contribution_before = client.get_member_contribution(&group_id, &member1);
+    assert_eq!(contribution_before, contribution_amount);
+
+    // Member leaves the group
+    client.break_group_save(&member1, &group_id);
+
+    // Verify contribution record is cleared
+    let contribution_after = client.get_member_contribution(&group_id, &member1);
+    assert_eq!(contribution_after, 0);
+}
+
+#[test]
+fn test_break_group_save_user_not_found() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let non_existent_user = Address::generate(&env);
+
+    env.mock_all_auths();
+
+    // Initialize only creator
+    client.initialize_user(&creator);
+
+    // Create a group
+    let group_id = client.create_group_save(
+        &creator,
+        &String::from_str(&env, "Savings Group"),
+        &String::from_str(&env, "Group savings plan"),
+        &String::from_str(&env, "education"),
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+
+    // Try to leave as non-existent user
+    let result = client.try_break_group_save(&non_existent_user, &group_id);
+    assert_eq!(result, Err(Ok(SavingsError::UserNotFound)));
+}
+
+#[test]
+fn test_break_group_save_group_not_found() {
+    let (env, client) = setup_test_env();
+    let user = Address::generate(&env);
+
+    env.mock_all_auths();
+
+    // Initialize user
+    client.initialize_user(&user);
+
+    // Try to leave non-existent group
+    let result = client.try_break_group_save(&user, &999u64);
+    assert_eq!(result, Err(Ok(SavingsError::PlanNotFound)));
+}
+
+#[test]
+fn test_break_group_save_not_a_member() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let non_member = Address::generate(&env);
+
+    env.mock_all_auths();
+
+    // Initialize users
+    client.initialize_user(&creator);
+    client.initialize_user(&non_member);
+
+    // Create a group
+    let group_id = client.create_group_save(
+        &creator,
+        &String::from_str(&env, "Savings Group"),
+        &String::from_str(&env, "Group savings plan"),
+        &String::from_str(&env, "education"),
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+
+    // Try to leave as non-member
+    let result = client.try_break_group_save(&non_member, &group_id);
+    assert_eq!(result, Err(Ok(SavingsError::NotGroupMember)));
+}
+
+#[test]
+fn test_break_group_save_group_completed() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+
+    env.mock_all_auths();
+
+    // Initialize user
+    client.initialize_user(&creator);
+
+    // Create a group with low target
+    let group_id = client.create_group_save(
+        &creator,
+        &String::from_str(&env, "Savings Group"),
+        &String::from_str(&env, "Group savings plan"),
+        &String::from_str(&env, "education"),
+        &100i128, // Low target
+        &0u32,
+        &10i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+
+    // Contribute enough to complete the group
+    client.contribute_to_group_save(&creator, &group_id, &100i128);
+
+    // Verify group is completed
+    let group = client.get_group_save_detail(&group_id).unwrap();
+    assert!(group.is_completed);
+
+    // Try to leave completed group
+    let result = client.try_break_group_save(&creator, &group_id);
+    assert_eq!(result, Err(Ok(SavingsError::PlanCompleted)));
+}
+
+#[test]
+fn test_break_group_save_multiple_members() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let member1 = Address::generate(&env);
+    let member2 = Address::generate(&env);
+
+    env.mock_all_auths();
+
+    // Initialize users
+    client.initialize_user(&creator);
+    client.initialize_user(&member1);
+    client.initialize_user(&member2);
+
+    // Create a group
+    let group_id = client.create_group_save(
+        &creator,
+        &String::from_str(&env, "Savings Group"),
+        &String::from_str(&env, "Group savings plan"),
+        &String::from_str(&env, "education"),
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+
+    // Members join
+    client.join_group_save(&member1, &group_id);
+    client.join_group_save(&member2, &group_id);
+
+    // Members contribute
+    client.contribute_to_group_save(&member1, &group_id, &300i128);
+    client.contribute_to_group_save(&member2, &group_id, &200i128);
+
+    // Verify initial state
+    let group_before = client.get_group_save_detail(&group_id).unwrap();
+    assert_eq!(group_before.member_count, 3);
+    assert_eq!(group_before.current_amount, 500);
+
+    // Member1 leaves
+    client.break_group_save(&member1, &group_id);
+
+    // Verify state after member1 leaves
+    let group_after_member1 = client.get_group_save_detail(&group_id).unwrap();
+    assert_eq!(group_after_member1.member_count, 2);
+    assert_eq!(group_after_member1.current_amount, 200);
+
+    // Verify members list
+    let members = client.get_group_members(&group_id);
+    assert_eq!(members.len(), 2);
+
+    // Member2 leaves
+    client.break_group_save(&member2, &group_id);
+
+    // Verify state after member2 leaves
+    let group_after_member2 = client.get_group_save_detail(&group_id).unwrap();
+    assert_eq!(group_after_member2.member_count, 1);
+    assert_eq!(group_after_member2.current_amount, 0);
+
+    // Only creator remains
+    let final_members = client.get_group_members(&group_id);
+    assert_eq!(final_members.len(), 1);
+    assert_eq!(final_members.get(0).unwrap(), creator);
+}
+
+#[test]
+fn test_break_group_save_zero_contribution() {
+    let (env, client) = setup_test_env();
+    let creator = Address::generate(&env);
+    let member1 = Address::generate(&env);
+
+    env.mock_all_auths();
+
+    // Initialize users
+    client.initialize_user(&creator);
+    client.initialize_user(&member1);
+
+    // Create a group
+    let group_id = client.create_group_save(
+        &creator,
+        &String::from_str(&env, "Savings Group"),
+        &String::from_str(&env, "Group savings plan"),
+        &String::from_str(&env, "education"),
+        &10000i128,
+        &0u32,
+        &100i128,
+        &true,
+        &1000u64,
+        &2000u64,
+    );
+
+    // Member joins but doesn't contribute
+    client.join_group_save(&member1, &group_id);
+
+    // Member leaves without contributing
+    client.break_group_save(&member1, &group_id);
+
+    // Verify group state
+    let group = client.get_group_save_detail(&group_id).unwrap();
+    assert_eq!(group.member_count, 1);
+    assert_eq!(group.current_amount, 0);
+}

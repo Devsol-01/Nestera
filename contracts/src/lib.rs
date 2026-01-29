@@ -529,6 +529,25 @@ impl NesteraContract {
         group::get_group_members(&env, group_id)
     }
 
+    /// Allows a user to break or leave a group savings plan before completion.
+    ///
+    /// When a user leaves a group:
+    /// - They are removed from the group members list
+    /// - Their contribution is refunded to their balance
+    /// - The group's current_amount and member_count are updated
+    ///
+    /// # Arguments
+    /// * `env` - The contract environment
+    /// * `user` - The address of the user leaving the group
+    /// * `group_id` - The ID of the group to leave
+    ///
+    /// # Returns
+    /// `Ok(())` on success
+    /// `Err(SavingsError)` if validation fails
+    pub fn break_group_save(env: Env, user: Address, group_id: u64) -> Result<(), SavingsError> {
+        group::break_group_save(&env, user, group_id)
+    }
+
     // ========== Lock Save Functions ==========
 
     /// Creates a new Lock Save plan for a user
