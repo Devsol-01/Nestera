@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google"; // Corrected import based on previous read
 import "./globals.css";
+import { WalletProvider } from "../contexts/WalletContext";
+import WalletConnectButton from "../components/wallet-connect-button";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -61,10 +63,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <header className="bg-gray-800 text-white p-4 text-center font-bold">
-          Nestera
-        </header>
-        {children}
+        <WalletProvider>
+          <header className="bg-gray-800 text-white p-4 flex justify-between items-center shadow-md">
+            <h1 className="text-xl font-bold">Nestera</h1>
+            <WalletConnectButton />
+          </header>
+          {children}
+        </WalletProvider>
       </body>
     </html>
   );
