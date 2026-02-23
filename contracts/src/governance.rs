@@ -40,6 +40,8 @@ pub struct VotingConfig {
     pub quorum: u32,
     pub voting_period: u64,
     pub timelock_duration: u64,
+    pub min_proposal_weight: u128,          // Minimum voting power to create a proposal
+    pub max_voting_power_per_user: u128,    // Maximum voting power any single user can have
 }
 
 #[contracttype]
@@ -83,12 +85,25 @@ pub fn create_proposal(
     let proposal_id = get_next_proposal_id(env);
     let now = env.ledger().timestamp();
 
+    // Check minimum governance weight to propose
+    let creator_weight = get_voting_power(env, &creator);
+    if creator_weight < config.min_proposal_weight {
+        return Err(SavingsError::InsufficientBalance);
+    }
+
+    // Validate timestamps
+    let end_time = now + config.voting_period;
+    if end_time < now {
+        // Check for timestamp overflow
+        return Err(SavingsError::InvalidTimestamp);
+    }
+
     let proposal = Proposal {
         id: proposal_id,
         creator: creator.clone(),
         description,
         start_time: now,
-        end_time: now + config.voting_period,
+        end_time,
         executed: false,
         for_votes: 0,
         against_votes: 0,
@@ -135,12 +150,25 @@ pub fn create_action_proposal(
     let proposal_id = get_next_proposal_id(env);
     let now = env.ledger().timestamp();
 
+    // Check minimum governance weight to propose
+    let creator_weight = get_voting_power(env, &creator);
+    if creator_weight < config.min_proposal_weight {
+        return Err(SavingsError::InsufficientBalance);
+    }
+
+    // Validate timestamps
+    let end_time = now + config.voting_period;
+    if end_time < now {
+        // Check for timestamp overflow
+        return Err(SavingsError::InvalidTimestamp);
+    }
+
     let proposal = ActionProposal {
         id: proposal_id,
         creator: creator.clone(),
         description,
         start_time: now,
-        end_time: now + config.voting_period,
+        end_time,
         executed: false,
         for_votes: 0,
         against_votes: 0,
@@ -259,9 +287,15 @@ pub fn vote(
     }
 
     // Check voter has sufficient governance weight
-    let weight = get_voting_power(env, &voter);
+    let mut weight = get_voting_power(env, &voter);
     if weight == 0 {
         return Err(SavingsError::InsufficientBalance);
+    }
+
+    // Cap voting power per user against max_voting_power_per_user
+    let config = get_voting_config(env)?;
+    if weight > config.max_voting_power_per_user {
+        weight = config.max_voting_power_per_user;
     }
 
     // Check for double voting

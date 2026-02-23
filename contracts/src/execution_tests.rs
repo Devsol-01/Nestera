@@ -38,7 +38,7 @@ mod execution_tests {
         let (env, client, admin) = setup_contract();
         env.mock_all_auths();
 
-        let _ = client.init_voting_config(&admin, &5000, &604800, &86400);
+        let _ = client.init_voting_config(&admin, &5000, &604800, &86400, &1000, &100000);
 
         let creator = Address::generate(&env);
         let description = String::from_str(&env, "Test proposal");
@@ -96,7 +96,7 @@ mod execution_tests {
         let (env, client, admin) = setup_contract();
         env.mock_all_auths();
 
-        let _ = client.init_voting_config(&admin, &5000, &604800, &86400);
+        let _ = client.init_voting_config(&admin, &5000, &604800, &86400, &1000, &100000);
 
         let creator = Address::generate(&env);
         let description = String::from_str(&env, "Test proposal");
@@ -225,7 +225,7 @@ mod execution_tests {
         env.mock_all_auths();
 
         // Setup governance
-        let _ = client.init_voting_config(&admin, &5000, &604800, &86400);
+        let _ = client.init_voting_config(&admin, &5000, &604800, &86400, &1000, &100000);
 
         // Create proposal
         let creator = Address::generate(&env);
@@ -274,7 +274,7 @@ mod execution_tests {
         let (env, client, admin) = setup_contract();
         env.mock_all_auths();
 
-        let _ = client.init_voting_config(&admin, &5000, &604800, &86400);
+        let _ = client.init_voting_config(&admin, &5000, &604800, &86400, &1000, &100000);
 
         let creator = Address::generate(&env);
         let description = String::from_str(&env, "Pause contract");
