@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { MedicalClaim, ClaimStatus } from './entities/medical-claim.entity';
 import { Repository } from 'typeorm';
 import { HospitalIntegrationService } from '../hospital-integration/hospital-integration.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 describe('ClaimsService', () => {
   let service: ClaimsService;
@@ -36,6 +37,10 @@ describe('ClaimsService', () => {
         {
           provide: HospitalIntegrationService,
           useValue: mockHospitalIntegrationService,
+        },
+        {
+          provide: EventEmitter2,
+          useValue: { emit: jest.fn() },
         },
       ],
     }).compile();
