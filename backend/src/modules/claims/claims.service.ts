@@ -1,9 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MedicalClaim, ClaimStatus } from './entities/medical-claim.entity';
 import { CreateClaimDto } from './dto/create-claim.dto';
 import { HospitalIntegrationService } from '../hospital-integration/hospital-integration.service';
+import { ClaimUpdatedEvent } from '../notifications/events/claim-updated.event';
 
 @Injectable()
 export class ClaimsService {
@@ -13,6 +15,7 @@ export class ClaimsService {
     @InjectRepository(MedicalClaim)
     private readonly claimsRepository: Repository<MedicalClaim>,
     private readonly hospitalIntegrationService: HospitalIntegrationService,
+    private readonly eventEmitter: EventEmitter2,
   ) { }
 
   async createClaim(createClaimDto: CreateClaimDto): Promise<MedicalClaim> {
@@ -51,11 +54,58 @@ export class ClaimsService {
       claim.status = verification.verified ? ClaimStatus.APPROVED : ClaimStatus.REJECTED;
       claim.notes = verification.notes || claim.notes;
 
-      return await this.claimsRepository.save(claim);
+      const saved = await this.claimsRepository.save(claim);
+
+      this.eventEmitter.emit(
+        'claim.updated',
+        new ClaimUpdatedEvent(
+          saved.id,
+          saved.patientName,
+          '',
+          saved.hospitalName,
+          Number(saved.claimAmount),
+          saved.status,
+          saved.notes,
+        ),
+      );
+
+      return saved;
     } catch (error) {
       this.logger.error(`Failed to verify claim ${claimId}:`, error);
       throw error;
     }
+  }
+
+  async updateClaimStatus(
+    claimId: string,
+    status: ClaimStatus,
+    patientEmail: string,
+    notes?: string,
+  ): Promise<MedicalClaim> {
+    const claim = await this.findOne(claimId);
+    if (!claim) {
+      throw new Error('Claim not found');
+    }
+
+    claim.status = status;
+    if (notes) claim.notes = notes;
+
+    const saved = await this.claimsRepository.save(claim);
+
+    this.eventEmitter.emit(
+      'claim.updated',
+      new ClaimUpdatedEvent(
+        saved.id,
+        saved.patientName,
+        patientEmail,
+        saved.hospitalName,
+        Number(saved.claimAmount),
+        saved.status,
+        saved.notes,
+      ),
+    );
+
+    return saved;
   }
 
   async fetchHospitalClaimData(hospitalId: string, claimId: string) {

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Sweep Completed – Nestera</title>
+</head>
+<body>
+  <h1>Account Sweep Successful</h1>
+  <p>Hi {{userName}},</p>
+  <p>Your savings account sweep has been completed successfully.</p>
+  <table>
+    <tr><td><strong>Product</strong></td><td>{{productName}}</td></tr>
+    <tr><td><strong>Amount Swept</strong></td><td>{{amount}}</td></tr>
+    {{#if txHash}}
+    <tr><td><strong>Transaction Hash</strong></td><td>{{txHash}}</td></tr>
+    {{/if}}
+  </table>
+  <p>The funds have been transferred to your designated account.</p>
+  <br>
+  <p>Best regards,<br>The Nestera Team</p>
+</body>
+</html>

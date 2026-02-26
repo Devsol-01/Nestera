@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Claim Status Update – Nestera</title>
+</head>
+<body>
+  <h1>Medical Claim Status Update</h1>
+  <p>Hi {{patientName}},</p>
+  <p>Your medical claim has been updated. Below are the details:</p>
+  <table>
+    <tr><td><strong>Claim ID</strong></td><td>{{claimId}}</td></tr>
+    <tr><td><strong>Hospital</strong></td><td>{{hospitalName}}</td></tr>
+    <tr><td><strong>Claim Amount</strong></td><td>{{claimAmount}}</td></tr>
+    <tr><td><strong>Status</strong></td><td>{{status}}</td></tr>
+    {{#if notes}}
+    <tr><td><strong>Notes</strong></td><td>{{notes}}</td></tr>
+    {{/if}}
+  </table>
+  <p>If you have any questions, please contact our support team.</p>
+  <br>
+  <p>Best regards,<br>The Nestera Team</p>
+</body>
+</html>

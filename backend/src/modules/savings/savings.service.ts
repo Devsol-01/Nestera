@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { SavingsProduct } from './entities/savings-product.entity';
 import {
   UserSubscription,
@@ -13,6 +14,7 @@ import {
 } from './entities/user-subscription.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { SweepCompletedEvent } from '../notifications/events/sweep-completed.event';
 
 @Injectable()
 export class SavingsService {
@@ -23,6 +25,7 @@ export class SavingsService {
     private readonly productRepository: Repository<SavingsProduct>,
     @InjectRepository(UserSubscription)
     private readonly subscriptionRepository: Repository<UserSubscription>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async createProduct(dto: CreateProductDto): Promise<SavingsProduct> {
@@ -103,5 +106,43 @@ export class SavingsService {
       where: { userId },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async sweepSubscription(
+    subscriptionId: string,
+    userEmail: string,
+    userName: string,
+    txHash?: string,
+  ): Promise<UserSubscription> {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { id: subscriptionId },
+      relations: ['product'],
+    });
+
+    if (!subscription) {
+      throw new NotFoundException(`Subscription ${subscriptionId} not found`);
+    }
+
+    if (subscription.status !== SubscriptionStatus.ACTIVE) {
+      throw new BadRequestException('Only ACTIVE subscriptions can be swept');
+    }
+
+    subscription.status = SubscriptionStatus.MATURED;
+    const saved = await this.subscriptionRepository.save(subscription);
+
+    this.eventEmitter.emit(
+      'sweep.completed',
+      new SweepCompletedEvent(
+        subscription.userId,
+        userEmail,
+        userName,
+        subscription.id,
+        subscription.product.name,
+        Number(subscription.amount),
+        txHash,
+      ),
+    );
+
+    return saved;
   }
 }

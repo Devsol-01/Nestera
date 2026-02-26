@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import configuration from './config/configuration';
@@ -20,6 +21,7 @@ import { ClaimsModule } from './modules/claims/claims.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
 import { AdminAnalyticsModule } from './modules/admin-analytics/admin-analytics.module';
 import { SavingsModule } from './modules/savings/savings.module';
+import { NotificationsModule } from './modules/notifications/notification.module';
 
 @Module({
   imports: [
@@ -32,6 +34,7 @@ import { SavingsModule } from './modules/savings/savings.module';
         abortEarly: true,
       },
     }),
+    EventEmitterModule.forRoot(),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
@@ -53,6 +56,7 @@ import { SavingsModule } from './modules/savings/savings.module';
     DisputesModule,
     AdminAnalyticsModule,
     SavingsModule,
+    NotificationsModule,
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
