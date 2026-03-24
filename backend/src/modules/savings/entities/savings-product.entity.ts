@@ -13,6 +13,12 @@ export enum SavingsProductType {
   FLEXIBLE = 'FLEXIBLE',
 }
 
+export enum RiskLevel {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+}
+
 @Entity('savings_products')
 export class SavingsProduct {
   @PrimaryGeneratedColumn('uuid')
@@ -38,6 +44,15 @@ export class SavingsProduct {
 
   @Column('int', { nullable: true })
   tenureMonths: number | null;
+
+  @Column({ nullable: true })
+  contractId: string;
+
+  @Column('decimal', { precision: 28, scale: 7, default: 0 })
+  tvlAmount: number;
+
+  @Column({ type: 'enum', enum: RiskLevel, default: RiskLevel.LOW })
+  riskLevel: RiskLevel;
 
   @Column({ default: true })
   isActive: boolean;
