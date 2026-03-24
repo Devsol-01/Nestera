@@ -1,0 +1,61 @@
+name: Backend CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+      - "feat/**"
+    tags:
+      - "v*"
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci-cd.yml"
+  pull_request:
+    branches:
+      - develop
+      - main
+    paths:
+      - "backend/**"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/backend
+
+jobs:
+  # ============================================================================
+  # BUILD: Ensure the NestJS project compiles cleanly
+  # ============================================================================
+  build:
+    runs-on: ubuntu-latest
+    name: Build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate package.json
+        run: node -e "JSON.parse(require('fs').readFileSync('backend/package.json','utf8')); console.log('package.json OK')"
+
+      - name: Install dependencies
+        run: cd backend && pnpm install --no-frozen-lockfile
+
+      - name: Build
+        run: cd backend && pnpm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-dist
+          path: backend/dist
+          retention-days: 7
