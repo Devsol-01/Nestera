@@ -24,7 +24,7 @@ pub fn flexi_deposit(env: Env, user: Address, amount: i128) -> Result<(), Saving
     let fee_bps: u32 = env
         .storage()
         .instance()
-        .get(&DataKey::PlatformFee)
+        .get(&DataKey::DepositFeeBps)
         .unwrap_or(0);
 
     let fee_amount = calculate_fee(amount, fee_bps)?;
@@ -81,6 +81,8 @@ pub fn flexi_deposit(env: Env, user: Address, amount: i128) -> Result<(), Saving
             env.events()
                 .publish((symbol_short!("dep_fee"), fee_recipient), fee_amount);
         }
+        // Record fee in treasury struct
+        crate::treasury::record_fee(&env, fee_amount, soroban_sdk::Symbol::new(&env, "deposit"));
     }
 
     Ok(())
@@ -108,7 +110,7 @@ pub fn flexi_withdraw(env: Env, user: Address, amount: i128) -> Result<(), Savin
     let fee_bps: u32 = env
         .storage()
         .instance()
-        .get(&DataKey::PlatformFee)
+        .get(&DataKey::WithdrawalFeeBps)
         .unwrap_or(0);
 
     let fee_amount = calculate_fee(amount, fee_bps)?;
@@ -164,6 +166,8 @@ pub fn flexi_withdraw(env: Env, user: Address, amount: i128) -> Result<(), Savin
             env.events()
                 .publish((symbol_short!("wth_fee"), fee_recipient), fee_amount);
         }
+        // Record fee in treasury struct
+        crate::treasury::record_fee(&env, fee_amount, soroban_sdk::Symbol::new(&env, "withdraw"));
     }
 
     Ok(())
@@ -221,14 +225,14 @@ mod tests {
 
     #[test]
     fn test_flexi_deposit_with_protocol_fee() {
-        let (env, client, _admin) = setup_admin_env();
+        let (env, client, admin) = setup_admin_env();
         let user = Address::generate(&env);
         let treasury = Address::generate(&env);
 
         env.mock_all_auths();
         client.initialize_user(&user);
         assert!(client.try_set_fee_recipient(&treasury).is_ok());
-        assert!(client.try_set_protocol_fee_bps(&500).is_ok()); // 5%
+        assert!(client.try_set_fees(&admin, &500, &500, &500).is_ok()); // 5%
 
         let deposit_amount = 10_000i128;
         client.deposit_flexi(&user, &deposit_amount);
@@ -255,14 +259,14 @@ mod tests {
 
     #[test]
     fn test_flexi_withdraw_with_protocol_fee() {
-        let (env, client, _admin) = setup_admin_env();
+        let (env, client, admin) = setup_admin_env();
         let user = Address::generate(&env);
         let treasury = Address::generate(&env);
 
         env.mock_all_auths();
         client.initialize_user(&user);
         assert!(client.try_set_fee_recipient(&treasury).is_ok());
-        assert!(client.try_set_protocol_fee_bps(&250).is_ok()); // 2.5%
+        assert!(client.try_set_fees(&admin, &250, &250, &250).is_ok()); // 2.5%
 
         client.deposit_flexi(&user, &10_000);
         let balance_before = client.get_flexi_balance(&user);
@@ -292,14 +296,14 @@ mod tests {
 
     #[test]
     fn test_flexi_fee_rounds_down() {
-        let (env, client, _admin) = setup_admin_env();
+        let (env, client, admin) = setup_admin_env();
         let user = Address::generate(&env);
         let treasury = Address::generate(&env);
 
         env.mock_all_auths();
         client.initialize_user(&user);
         assert!(client.try_set_fee_recipient(&treasury).is_ok());
-        assert!(client.try_set_protocol_fee_bps(&125).is_ok()); // 1.25%
+        assert!(client.try_set_fees(&admin, &125, &125, &125).is_ok()); // 1.25%
 
         client.deposit_flexi(&user, &3_333);
 
@@ -311,14 +315,14 @@ mod tests {
 
     #[test]
     fn test_flexi_small_amount_edge_case() {
-        let (env, client, _admin) = setup_admin_env();
+        let (env, client, admin) = setup_admin_env();
         let user = Address::generate(&env);
         let treasury = Address::generate(&env);
 
         env.mock_all_auths();
         client.initialize_user(&user);
         assert!(client.try_set_fee_recipient(&treasury).is_ok());
-        assert!(client.try_set_protocol_fee_bps(&100).is_ok()); // 1%
+        assert!(client.try_set_fees(&admin, &100, &100, &100).is_ok()); // 1%
 
         // Small amount where fee would be < 1
         client.deposit_flexi(&user, &50);

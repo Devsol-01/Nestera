@@ -30,15 +30,15 @@ fn test_initialize_config_succeeds() {
     let treasury = Address::generate(&env);
 
     env.mock_all_auths();
-    let result = client.try_initialize_config(&admin, &treasury, &100);
+    let result = client.try_initialize_config(&admin, &treasury, &100, &100, &100);
     assert!(result.is_ok(), "initialize_config should succeed");
 
     // Verify stored values
     let config = client.get_config();
     assert_eq!(config.admin, admin);
     assert_eq!(config.treasury, treasury);
-    assert_eq!(config.protocol_fee_bps, 100);
-    assert_eq!(config.paused, false);
+    assert_eq!(config.performance_fee_bps, 100);
+    assert!(!config.paused);
 }
 
 #[test]
@@ -47,11 +47,11 @@ fn test_initialize_config_zero_fee() {
     let treasury = Address::generate(&env);
 
     env.mock_all_auths();
-    let result = client.try_initialize_config(&admin, &treasury, &0);
+    let result = client.try_initialize_config(&admin, &treasury, &0, &0, &0);
     assert!(result.is_ok(), "zero fee should be valid");
 
     let config = client.get_config();
-    assert_eq!(config.protocol_fee_bps, 0);
+    assert_eq!(config.performance_fee_bps, 0);
 }
 
 #[test]
@@ -60,11 +60,11 @@ fn test_initialize_config_max_fee() {
     let treasury = Address::generate(&env);
 
     env.mock_all_auths();
-    let result = client.try_initialize_config(&admin, &treasury, &10_000);
+    let result = client.try_initialize_config(&admin, &treasury, &10_000, &10_000, &10_000);
     assert!(result.is_ok(), "max fee (10000 bps = 100%) should be valid");
 
     let config = client.get_config();
-    assert_eq!(config.protocol_fee_bps, 10_000);
+    assert_eq!(config.performance_fee_bps, 10_000);
 }
 
 #[test]
@@ -74,14 +74,14 @@ fn test_reinitialize_config_fails() {
 
     env.mock_all_auths();
     assert!(client
-        .try_initialize_config(&admin, &treasury, &100)
+        .try_initialize_config(&admin, &treasury, &100, &100, &100)
         .is_ok());
 
     // Second initialization should fail
     let treasury2 = Address::generate(&env);
     assert_savings_error(
         client
-            .try_initialize_config(&admin, &treasury2, &200)
+            .try_initialize_config(&admin, &treasury2, &200, &200, &200)
             .unwrap_err(),
         SavingsError::ConfigAlreadyInitialized,
     );
@@ -95,7 +95,7 @@ fn test_initialize_config_fee_too_high() {
     env.mock_all_auths();
     assert_savings_error(
         client
-            .try_initialize_config(&admin, &treasury, &10_001)
+            .try_initialize_config(&admin, &treasury, &10_001, &10_001, &10_001)
             .unwrap_err(),
         SavingsError::InvalidFeeBps,
     );
@@ -110,7 +110,7 @@ fn test_non_admin_cannot_initialize_config() {
     env.mock_all_auths();
     assert_savings_error(
         client
-            .try_initialize_config(&non_admin, &treasury, &100)
+            .try_initialize_config(&non_admin, &treasury, &100, &100, &100)
             .unwrap_err(),
         SavingsError::Unauthorized,
     );
@@ -126,8 +126,8 @@ fn test_get_config_before_config_init() {
     // Config should still be retrievable with defaults even without initialize_config
     let config = client.get_config();
     assert_eq!(config.admin, admin);
-    assert_eq!(config.protocol_fee_bps, 0); // default
-    assert_eq!(config.paused, false); // default
+    assert_eq!(config.performance_fee_bps, 0); // default
+    assert!(!config.paused); // default
 }
 
 #[test]
@@ -137,17 +137,17 @@ fn test_get_config_reflects_updates() {
     let new_treasury = Address::generate(&env);
 
     env.mock_all_auths();
-    client.initialize_config(&admin, &treasury, &100);
+    client.initialize_config(&admin, &treasury, &100, &100, &100);
 
     // Update treasury
     client.set_treasury(&admin, &new_treasury);
 
     // Update fee
-    client.set_protocol_fee(&admin, &500);
+    client.set_fees(&admin, &500, &500, &500);
 
     let config = client.get_config();
     assert_eq!(config.treasury, new_treasury);
-    assert_eq!(config.protocol_fee_bps, 500);
+    assert_eq!(config.performance_fee_bps, 500);
 }
 
 // ========== set_treasury Tests ==========
@@ -159,7 +159,7 @@ fn test_set_treasury_succeeds() {
     let new_treasury = Address::generate(&env);
 
     env.mock_all_auths();
-    client.initialize_config(&admin, &treasury, &100);
+    client.initialize_config(&admin, &treasury, &100, &100, &100);
 
     let result = client.try_set_treasury(&admin, &new_treasury);
     assert!(result.is_ok(), "admin should be able to update treasury");
@@ -176,7 +176,7 @@ fn test_non_admin_cannot_set_treasury() {
     let new_treasury = Address::generate(&env);
 
     env.mock_all_auths();
-    client.initialize_config(&admin, &treasury, &100);
+    client.initialize_config(&admin, &treasury, &100, &100, &100);
 
     assert_savings_error(
         client
@@ -194,13 +194,13 @@ fn test_set_protocol_fee_succeeds() {
     let treasury = Address::generate(&env);
 
     env.mock_all_auths();
-    client.initialize_config(&admin, &treasury, &100);
+    client.initialize_config(&admin, &treasury, &100, &100, &100);
 
-    let result = client.try_set_protocol_fee(&admin, &500);
+    let result = client.try_set_fees(&admin, &500, &500, &500);
     assert!(result.is_ok(), "admin should be able to update fee");
 
     let config = client.get_config();
-    assert_eq!(config.protocol_fee_bps, 500);
+    assert_eq!(config.performance_fee_bps, 500);
 }
 
 #[test]
@@ -209,13 +209,13 @@ fn test_set_protocol_fee_to_zero() {
     let treasury = Address::generate(&env);
 
     env.mock_all_auths();
-    client.initialize_config(&admin, &treasury, &100);
+    client.initialize_config(&admin, &treasury, &100, &100, &100);
 
-    let result = client.try_set_protocol_fee(&admin, &0);
+    let result = client.try_set_fees(&admin, &0, &0, &0);
     assert!(result.is_ok(), "setting fee to 0 should work");
 
     let config = client.get_config();
-    assert_eq!(config.protocol_fee_bps, 0);
+    assert_eq!(config.performance_fee_bps, 0);
 }
 
 #[test]
@@ -224,9 +224,9 @@ fn test_set_protocol_fee_to_max() {
     let treasury = Address::generate(&env);
 
     env.mock_all_auths();
-    client.initialize_config(&admin, &treasury, &100);
+    client.initialize_config(&admin, &treasury, &100, &100, &100);
 
-    let result = client.try_set_protocol_fee(&admin, &10_000);
+    let result = client.try_set_fees(&admin, &10_000, &10_000, &10_000);
     assert!(result.is_ok(), "setting fee to 10000 should work");
 }
 
@@ -236,10 +236,12 @@ fn test_set_protocol_fee_exceeds_max() {
     let treasury = Address::generate(&env);
 
     env.mock_all_auths();
-    client.initialize_config(&admin, &treasury, &100);
+    client.initialize_config(&admin, &treasury, &100, &100, &100);
 
     assert_savings_error(
-        client.try_set_protocol_fee(&admin, &10_001).unwrap_err(),
+        client
+            .try_set_fees(&admin, &10_001, &10_001, &10_001)
+            .unwrap_err(),
         SavingsError::InvalidFeeBps,
     );
 }
@@ -251,10 +253,12 @@ fn test_non_admin_cannot_set_protocol_fee() {
     let non_admin = Address::generate(&env);
 
     env.mock_all_auths();
-    client.initialize_config(&admin, &treasury, &100);
+    client.initialize_config(&admin, &treasury, &100, &100, &100);
 
     assert_savings_error(
-        client.try_set_protocol_fee(&non_admin, &500).unwrap_err(),
+        client
+            .try_set_fees(&non_admin, &500, &500, &500)
+            .unwrap_err(),
         SavingsError::Unauthorized,
     );
 }
@@ -270,7 +274,7 @@ fn test_pause_contract_succeeds() {
     assert!(result.is_ok(), "admin should be able to pause");
 
     let config = client.get_config();
-    assert_eq!(config.paused, true);
+    assert!(config.paused);
 }
 
 #[test]
@@ -283,7 +287,7 @@ fn test_unpause_contract_succeeds() {
     assert!(result.is_ok(), "admin should be able to unpause");
 
     let config = client.get_config();
-    assert_eq!(config.paused, false);
+    assert!(!config.paused);
 }
 
 #[test]
@@ -414,12 +418,12 @@ fn test_full_config_lifecycle() {
     env.mock_all_auths();
 
     // 1. Initialize config
-    client.initialize_config(&admin, &treasury1, &250);
+    client.initialize_config(&admin, &treasury1, &250, &250, &250);
 
     let config = client.get_config();
     assert_eq!(config.treasury, treasury1);
-    assert_eq!(config.protocol_fee_bps, 250);
-    assert_eq!(config.paused, false);
+    assert_eq!(config.performance_fee_bps, 250);
+    assert!(!config.paused);
 
     // 2. Update treasury
     client.set_treasury(&admin, &treasury2);
@@ -427,19 +431,21 @@ fn test_full_config_lifecycle() {
     assert_eq!(config.treasury, treasury2);
 
     // 3. Update fee
-    client.set_protocol_fee(&admin, &500);
+    client.set_fees(&admin, &500, &500, &500);
     let config = client.get_config();
-    assert_eq!(config.protocol_fee_bps, 500);
+    assert_eq!(config.deposit_fee_bps, 500);
+    assert_eq!(config.withdrawal_fee_bps, 500);
+    assert_eq!(config.performance_fee_bps, 500);
 
     // 4. Pause
     client.pause_contract(&admin);
-    assert_eq!(client.get_config().paused, true);
+    assert!(client.get_config().paused);
 
     // 5. Admin can still update config while paused
-    client.set_protocol_fee(&admin, &300);
-    assert_eq!(client.get_config().protocol_fee_bps, 300);
+    client.set_fees(&admin, &300, &300, &300);
+    assert_eq!(client.get_config().performance_fee_bps, 300);
 
     // 6. Unpause
     client.unpause_contract(&admin);
-    assert_eq!(client.get_config().paused, false);
+    assert!(!client.get_config().paused);
 }

@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { GovernanceProposal } from './entities/governance-proposal.entity';
-import { Vote } from './entities/vote.entity';
-import { GovernanceIndexerService } from './governance-indexer.service';
+import { GovernanceController } from './governance.controller';
+import { GovernanceService } from './governance.service';
+import { UserModule } from '../user/user.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([GovernanceProposal, Vote])],
-  providers: [GovernanceIndexerService],
-  exports: [GovernanceIndexerService],
+  imports: [UserModule],
+  controllers: [GovernanceController],
+  providers: [GovernanceService],
 })
 export class GovernanceModule {}

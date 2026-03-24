@@ -34,6 +34,12 @@ pub struct User {
 }
 
 /// Represents a Lock Save plan with fixed duration
+impl Default for User {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl User {
     pub fn new() -> Self {
         Self {
@@ -87,6 +93,10 @@ pub enum SavingsError {
     LockNotMatured = 5,
     AlreadyWithdrawn = 6,
     Unauthorized = 7,
+    /// Returned when attempting to operate on a disabled strategy
+    StrategyDisabled = 8,
+    /// Returned when the specified strategy does not exist
+    StrategyNotFound = 9,
 }
 
 /// Represents a Goal Save plan with target amount
@@ -126,21 +136,31 @@ pub enum DataKey {
     /// Global pause flag for emergency control
     Paused,
     /// Treasury address for protocol fee collection
+    TreasuryAddress,
+    /// Protocol fee in basis points (100 = 1%) for deposits
+    DepositFeeBps,
+    /// Protocol fee in basis points for withdrawals
+    WithdrawalFeeBps,
+    /// Protocol fee in basis points for performance (yield harvest)
+    PerformanceFeeBps,
+    /// Store the Treasury struct metrics (from issue #321)
     Treasury,
-    /// Protocol fee in basis points (100 = 1%)
-    ProtocolFeeBps,
     /// Flag to track config initialization
     ConfigInitialized,
-    /// Minimum allowed deposit amount
-    MinimumDeposit,
-    /// Fee applied on withdrawals
-    WithdrawalFee,
-    /// Protocol fee configuration
-    PlatformFee,
+    /// Treasury allocation config (reserve/rewards/operations percentages)
+    AllocationConfig,
     /// Early break fee (basis points) for goal saves
     EarlyBreakFeeBps,
     /// Fee recipient for protocol/treasury fees
     FeeRecipient,
+    /// Track total principal deposited in a strategy (deposits - withdrawals)
+    StrategyTotalPrincipal(Address),
+    /// Track accumulated yield designated for Nestera users from a strategy
+    StrategyYield(Address),
+    /// Aggregate performance metrics for a strategy (total deposited, withdrawn, harvested, APY)
+    StrategyPerformance(Address),
+    /// Reentrancy guard flag – set to true while an external strategy call is in flight
+    ReentrancyGuard,
     User(Address),
     /// Maps a (user address, plan_id) tuple to a SavingsPlan
     SavingsPlan(Address, u64),
@@ -180,6 +200,8 @@ pub enum DataKey {
     GroupRate,
     /// Maps duration (days) to interest rate
     LockRate(u64),
+    /// Maps (plan_type, plan_id) to disabled status
+    DisabledStrategy(PlanType, u64),
 }
 
 /// Payload structure that the admin signs off-chain
@@ -195,6 +217,22 @@ pub struct MintPayload {
     pub timestamp: u64,
     /// Expiry duration in seconds (signature valid for timestamp + expiry_duration)
     pub expiry_duration: u64,
+}
+
+/// Performance metrics for a yield strategy (frontend-ready, read-only view)
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StrategyPerformance {
+    /// Cumulative amount deposited into this strategy (all time)
+    pub total_deposited: i128,
+    /// Cumulative amount withdrawn from this strategy (all time)
+    pub total_withdrawn: i128,
+    /// Cumulative yield harvested from this strategy (all time)
+    pub total_harvested: i128,
+    /// APY estimate in basis points (e.g. 500 = 5.00%).
+    /// Computed as: (total_harvested * 10_000) / total_deposited
+    /// Returns 0 when no deposits have been made.
+    pub apy_estimate_bps: u32,
 }
 
 // View-specific structures (used by views.rs module)

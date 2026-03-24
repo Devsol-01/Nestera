@@ -12,7 +12,7 @@ fn setup() -> (Env, NesteraContractClient<'static>, Address) {
 
     env.mock_all_auths();
     // Assuming initialize returns Result now
-    let _ = client.initialize(&admin, &admin_pk);
+    client.initialize(&admin, &admin_pk);
 
     (env, client, admin)
 }

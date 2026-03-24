@@ -31,28 +31,28 @@ fn test_default_rates_are_zero() {
 
 #[test]
 fn test_admin_can_set_rates() {
-    let (env, client, _admin) = setup();
+    let (env, client, admin) = setup();
 
     env.mock_all_auths();
 
     // Set Flexi Rate to 500 (5%)
-    assert!(client.try_set_flexi_rate(&500).is_ok());
+    assert!(client.try_set_flexi_rate(&admin, &500).is_ok());
     assert_eq!(client.get_flexi_rate(), 500);
 
     // Set Goal Rate
-    assert!(client.try_set_goal_rate(&600).is_ok());
+    assert!(client.try_set_goal_rate(&admin, &600).is_ok());
     assert_eq!(client.get_goal_rate(), 600);
 
     // Set Group Rate
-    assert!(client.try_set_group_rate(&700).is_ok());
+    assert!(client.try_set_group_rate(&admin, &700).is_ok());
     assert_eq!(client.get_group_rate(), 700);
 
     // Set Lock Rate for 30 days
-    assert!(client.try_set_lock_rate(&30, &800).is_ok());
+    assert!(client.try_set_lock_rate(&admin, &30, &800).is_ok());
     assert_eq!(client.get_lock_rate(&30), 800);
 
     // Verify independent lock rates
-    assert!(client.try_set_lock_rate(&60, &900).is_ok());
+    assert!(client.try_set_lock_rate(&admin, &60, &900).is_ok());
     assert_eq!(client.get_lock_rate(&60), 900);
     assert_eq!(client.get_lock_rate(&30), 800); // 30 days unchanged
 }
@@ -60,30 +60,24 @@ fn test_admin_can_set_rates() {
 #[test]
 fn test_non_admin_cannot_set_rates() {
     let (env, client, _admin) = setup();
-    let _user = Address::generate(&env);
+    let user = Address::generate(&env);
 
-    // Clear the "mock all" from setup so we can test failures
-    env.mock_auths(&[]);
-
-    // We only mock the user's auth (implied if we were doing user actions),
-    // but here we want to assert that even if we call it, it fails because ADMIN auth is missing.
-    // Since we cleared mock_all_auths, and we don't mock admin auth,
-    // `admin.require_auth()` inside the contract should fail.
+    env.mock_all_auths();
 
     // Try set flexi rate
-    let res = client.try_set_flexi_rate(&500);
+    let res = client.try_set_flexi_rate(&user, &500);
     assert!(res.is_err());
 
     // Try set goal rate
-    let res = client.try_set_goal_rate(&500);
+    let res = client.try_set_goal_rate(&user, &500);
     assert!(res.is_err());
 
     // Try set group rate
-    let res = client.try_set_group_rate(&500);
+    let res = client.try_set_group_rate(&user, &500);
     assert!(res.is_err());
 
     // Try set lock rate
-    let res = client.try_set_lock_rate(&30, &500);
+    let res = client.try_set_lock_rate(&user, &30, &500);
     assert!(res.is_err());
 }
 
@@ -114,10 +108,10 @@ fn test_calculate_lock_interest_logic() {
 
 #[test]
 fn test_invalid_rates() {
-    let (env, client, _admin) = setup();
+    let (env, client, admin) = setup();
     env.mock_all_auths();
 
     // Try set negative rate
-    let res = client.try_set_flexi_rate(&-100);
+    let res = client.try_set_flexi_rate(&admin, &-100);
     assert_eq!(res.unwrap_err(), Ok(SavingsError::InvalidInterestRate));
 }

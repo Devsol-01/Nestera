@@ -1,0 +1,27 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: nestera
+      POSTGRES_PASSWORD: nestera
+      POSTGRES_DB: nestera
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    restart: always
+    environment:
+      DATABASE_URL: "postgresql://nestera:nestera@postgres:5432/nestera"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    command: ["node", "dist/main.js"]
+
+volumes:
+  postgres_data:

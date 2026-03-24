@@ -13,8 +13,10 @@ const MAX_FEE_BPS: u32 = 10_000;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Config {
     pub admin: Address,
-    pub treasury: Address,
-    pub protocol_fee_bps: u32,
+    pub treasury: Address, // Treasury Address
+    pub deposit_fee_bps: u32,
+    pub withdrawal_fee_bps: u32,
+    pub performance_fee_bps: u32,
     pub paused: bool,
 }
 
@@ -58,7 +60,9 @@ pub fn initialize_config(
     env: &Env,
     admin: Address,
     treasury: Address,
-    protocol_fee_bps: u32,
+    deposit_fee_bps: u32,
+    withdrawal_fee_bps: u32,
+    performance_fee_bps: u32,
 ) -> Result<(), SavingsError> {
     // Prevent re-initialization
     let already_init: bool = env
@@ -74,21 +78,35 @@ pub fn initialize_config(
     require_admin(env, &admin)?;
 
     // Validate fee bounds
-    if protocol_fee_bps > MAX_FEE_BPS {
+    if deposit_fee_bps > MAX_FEE_BPS
+        || withdrawal_fee_bps > MAX_FEE_BPS
+        || performance_fee_bps > MAX_FEE_BPS
+    {
         return Err(SavingsError::InvalidFeeBps);
     }
 
     // Store config values
-    env.storage().instance().set(&DataKey::Treasury, &treasury);
     env.storage()
         .instance()
-        .set(&DataKey::ProtocolFeeBps, &protocol_fee_bps);
+        .set(&DataKey::TreasuryAddress, &treasury);
+    env.storage()
+        .instance()
+        .set(&DataKey::DepositFeeBps, &deposit_fee_bps);
+    env.storage()
+        .instance()
+        .set(&DataKey::WithdrawalFeeBps, &withdrawal_fee_bps);
+    env.storage()
+        .instance()
+        .set(&DataKey::PerformanceFeeBps, &performance_fee_bps);
     env.storage()
         .instance()
         .set(&DataKey::ConfigInitialized, &true);
 
+    // Initialize the treasury struct with default zero values
+    crate::treasury::initialize_treasury(env);
+
     env.events()
-        .publish((symbol_short!("cfg_init"),), protocol_fee_bps);
+        .publish((symbol_short!("cfg_init"),), performance_fee_bps);
 
     Ok(())
 }
@@ -114,13 +132,25 @@ pub fn get_config(env: &Env) -> Result<Config, SavingsError> {
     let treasury: Address = env
         .storage()
         .instance()
-        .get(&DataKey::Treasury)
+        .get(&DataKey::TreasuryAddress)
         .unwrap_or(admin.clone());
 
-    let protocol_fee_bps: u32 = env
+    let deposit_fee_bps: u32 = env
         .storage()
         .instance()
-        .get(&DataKey::ProtocolFeeBps)
+        .get(&DataKey::DepositFeeBps)
+        .unwrap_or(0);
+
+    let withdrawal_fee_bps: u32 = env
+        .storage()
+        .instance()
+        .get(&DataKey::WithdrawalFeeBps)
+        .unwrap_or(0);
+
+    let performance_fee_bps: u32 = env
+        .storage()
+        .instance()
+        .get(&DataKey::PerformanceFeeBps)
         .unwrap_or(0);
 
     let paused: bool = env
@@ -132,7 +162,9 @@ pub fn get_config(env: &Env) -> Result<Config, SavingsError> {
     Ok(Config {
         admin,
         treasury,
-        protocol_fee_bps,
+        deposit_fee_bps,
+        withdrawal_fee_bps,
+        performance_fee_bps,
         paused,
     })
 }
@@ -151,7 +183,7 @@ pub fn set_treasury(env: &Env, admin: Address, new_treasury: Address) -> Result<
 
     env.storage()
         .instance()
-        .set(&DataKey::Treasury, &new_treasury);
+        .set(&DataKey::TreasuryAddress, &new_treasury);
 
     env.events()
         .publish((symbol_short!("set_trs"),), new_treasury);
@@ -169,19 +201,31 @@ pub fn set_treasury(env: &Env, admin: Address, new_treasury: Address) -> Result<
 /// # Errors
 /// * `SavingsError::Unauthorized` - If caller is not the admin
 /// * `SavingsError::InvalidFeeBps` - If fee exceeds 10000 bps
-pub fn set_protocol_fee(env: &Env, admin: Address, new_fee_bps: u32) -> Result<(), SavingsError> {
+pub fn set_fees(
+    env: &Env,
+    admin: Address,
+    deposit_fee: u32,
+    withdrawal_fee: u32,
+    performance_fee: u32,
+) -> Result<(), SavingsError> {
     require_admin(env, &admin)?;
 
-    if new_fee_bps > MAX_FEE_BPS {
+    if deposit_fee > MAX_FEE_BPS || withdrawal_fee > MAX_FEE_BPS || performance_fee > MAX_FEE_BPS {
         return Err(SavingsError::InvalidFeeBps);
     }
 
     env.storage()
         .instance()
-        .set(&DataKey::ProtocolFeeBps, &new_fee_bps);
+        .set(&DataKey::DepositFeeBps, &deposit_fee);
+    env.storage()
+        .instance()
+        .set(&DataKey::WithdrawalFeeBps, &withdrawal_fee);
+    env.storage()
+        .instance()
+        .set(&DataKey::PerformanceFeeBps, &performance_fee);
 
     env.events()
-        .publish((symbol_short!("set_fee"),), new_fee_bps);
+        .publish((symbol_short!("set_fee"),), performance_fee);
 
     Ok(())
 }

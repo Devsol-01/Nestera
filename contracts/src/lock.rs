@@ -64,6 +64,7 @@ pub fn create_lock_save(
     user_data.savings_count += 1;
     env.storage().persistent().set(&user_key, &user_data);
 
+    storage::award_deposit_points(env, user.clone(), amount)?;
     storage::award_long_lock_bonus(env, user.clone(), amount, duration)?;
 
     // Extend TTL for new lock save and user data
@@ -144,7 +145,7 @@ pub fn get_user_lock_saves(env: &Env, user: &Address) -> Vec<u64> {
         .unwrap_or_else(|| Vec::new(env));
 
     // Extend TTL on list access
-    if locks.len() > 0 {
+    if !locks.is_empty() {
         ttl::extend_user_plan_list_ttl(env, &list_key);
     }
 
@@ -218,6 +219,10 @@ mod tests {
             long_lock_bonus_bps: 2_000, // 20% of base points
             goal_completion_bonus: 500,
             enabled,
+            min_deposit_for_rewards: 0,
+            action_cooldown_seconds: 0,
+            max_daily_points: 1_000_000,
+            max_streak_multiplier: 10_000,
         };
         assert!(client.try_initialize_rewards_config(&config).is_ok());
 
@@ -284,7 +289,8 @@ mod tests {
 
         let rewards = client.get_user_rewards(&user);
         // base points = 1000 * 10 = 10000, bonus = 20% = 2000
-        assert_eq!(rewards.total_points, 2_000);
+        // base points = 1000 * 10 = 10000, bonus = 20% = 2000
+        assert_eq!(rewards.total_points, 12_000);
     }
 
     #[test]
@@ -299,7 +305,8 @@ mod tests {
         client.create_lock_save(&user, &amount, &LONG_LOCK_BONUS_THRESHOLD_SECS);
 
         let rewards = client.get_user_rewards(&user);
-        assert_eq!(rewards.total_points, 0);
+        // base points = 1000 * 10 = 10000
+        assert_eq!(rewards.total_points, 10_000);
     }
 
     #[test]
@@ -315,7 +322,8 @@ mod tests {
         client.create_lock_save(&user, &amount, &below_threshold);
 
         let rewards = client.get_user_rewards(&user);
-        assert_eq!(rewards.total_points, 0);
+        // base points = 1000 * 10 = 10000
+        assert_eq!(rewards.total_points, 10_000);
     }
 
     #[test]
@@ -353,6 +361,7 @@ mod tests {
         let _ = client.withdraw_lock_save(&user, &lock_id);
 
         let rewards = client.get_user_rewards(&user);
-        assert_eq!(rewards.total_points, 2_000);
+        // base points = 1000 * 10 = 10000, bonus = 2000
+        assert_eq!(rewards.total_points, 12_000);
     }
 }

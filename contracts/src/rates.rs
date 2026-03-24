@@ -1,10 +1,14 @@
+use crate::governance;
 use crate::storage_types::DataKey;
 use crate::SavingsError;
-use soroban_sdk::Env;
+use soroban_sdk::{Address, Env};
 
-// --- Admin Setters ---
+// --- Admin Setters (with governance transition) ---
 
-pub fn set_flexi_rate(env: &Env, rate: i128) -> Result<(), SavingsError> {
+pub fn set_flexi_rate(env: &Env, caller: Address, rate: i128) -> Result<(), SavingsError> {
+    caller.require_auth();
+    governance::validate_admin_or_governance(env, &caller)?;
+
     if rate < 0 {
         return Err(SavingsError::InvalidInterestRate);
     }
@@ -12,7 +16,10 @@ pub fn set_flexi_rate(env: &Env, rate: i128) -> Result<(), SavingsError> {
     Ok(())
 }
 
-pub fn set_goal_rate(env: &Env, rate: i128) -> Result<(), SavingsError> {
+pub fn set_goal_rate(env: &Env, caller: Address, rate: i128) -> Result<(), SavingsError> {
+    caller.require_auth();
+    governance::validate_admin_or_governance(env, &caller)?;
+
     if rate < 0 {
         return Err(SavingsError::InvalidInterestRate);
     }
@@ -20,7 +27,10 @@ pub fn set_goal_rate(env: &Env, rate: i128) -> Result<(), SavingsError> {
     Ok(())
 }
 
-pub fn set_group_rate(env: &Env, rate: i128) -> Result<(), SavingsError> {
+pub fn set_group_rate(env: &Env, caller: Address, rate: i128) -> Result<(), SavingsError> {
+    caller.require_auth();
+    governance::validate_admin_or_governance(env, &caller)?;
+
     if rate < 0 {
         return Err(SavingsError::InvalidInterestRate);
     }
@@ -28,7 +38,15 @@ pub fn set_group_rate(env: &Env, rate: i128) -> Result<(), SavingsError> {
     Ok(())
 }
 
-pub fn set_lock_rate(env: &Env, duration_days: u64, rate: i128) -> Result<(), SavingsError> {
+pub fn set_lock_rate(
+    env: &Env,
+    caller: Address,
+    duration_days: u64,
+    rate: i128,
+) -> Result<(), SavingsError> {
+    caller.require_auth();
+    governance::validate_admin_or_governance(env, &caller)?;
+
     if rate < 0 {
         return Err(SavingsError::InvalidInterestRate);
     }

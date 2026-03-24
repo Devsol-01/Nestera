@@ -78,5 +78,8 @@ pub fn initialize_user(env: &Env, user: Address) -> Result<(), SavingsError> {
     // Extend TTL for new user
     ttl::extend_user_ttl(env, &user);
 
+    // Initialize user rewards
+    let _ = crate::rewards::storage::initialize_user_rewards(env, user);
+
     Ok(())
 }

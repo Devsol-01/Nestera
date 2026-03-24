@@ -41,6 +41,14 @@
                   "map": [
                     {
                       "key": {
+                        "symbol": "action_cooldown_seconds"
+                      },
+                      "val": {
+                        "u64": "0"
+                      }
+                    },
+                    {
+                      "key": {
                         "symbol": "enabled"
                       },
                       "val": {
@@ -61,6 +69,30 @@
                       },
                       "val": {
                         "u32": 0
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "max_daily_points"
+                      },
+                      "val": {
+                        "u128": "1000000"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "max_streak_multiplier"
+                      },
+                      "val": {
+                        "u32": 10000
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "min_deposit_for_rewards"
+                      },
+                      "val": {
+                        "i128": "0"
                       }
                     },
                     {
@@ -304,10 +336,26 @@
                     },
                     {
                       "key": {
+                        "symbol": "daily_points_earned"
+                      },
+                      "val": {
+                        "u128": "0"
+                      }
+                    },
+                    {
+                      "key": {
                         "symbol": "last_action_timestamp"
                       },
                       "val": {
                         "u64": "86400"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "last_reward_day"
+                      },
+                      "val": {
+                        "u64": "0"
                       }
                     },
                     {
@@ -394,6 +442,14 @@
                           "map": [
                             {
                               "key": {
+                                "symbol": "action_cooldown_seconds"
+                              },
+                              "val": {
+                                "u64": "0"
+                              }
+                            },
+                            {
+                              "key": {
                                 "symbol": "enabled"
                               },
                               "val": {
@@ -414,6 +470,30 @@
                               },
                               "val": {
                                 "u32": 0
+                              }
+                            },
+                            {
+                              "key": {
+                                "symbol": "max_daily_points"
+                              },
+                              "val": {
+                                "u128": "1000000"
+                              }
+                            },
+                            {
+                              "key": {
+                                "symbol": "max_streak_multiplier"
+                              },
+                              "val": {
+                                "u32": 10000
+                              }
+                            },
+                            {
+                              "key": {
+                                "symbol": "min_deposit_for_rewards"
+                              },
+                              "val": {
+                                "i128": "0"
                               }
                             },
                             {
@@ -645,5 +725,49 @@
       ]
     ]
   },
-  "events": []
+  "events": [
+    {
+      "event": {
+        "ext": "v0",
+        "contract_id": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+        "type_": "contract",
+        "body": {
+          "v0": {
+            "topics": [
+              {
+                "symbol": "rewards"
+              },
+              {
+                "symbol": "streak"
+              },
+              {
+                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+              }
+            ],
+            "data": {
+              "map": [
+                {
+                  "key": {
+                    "symbol": "streak"
+                  },
+                  "val": {
+                    "u32": 2
+                  }
+                },
+                {
+                  "key": {
+                    "symbol": "user"
+                  },
+                  "val": {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "failed_call": false
+    }
+  ]
 }

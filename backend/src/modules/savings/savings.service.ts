@@ -1,58 +1,208 @@
-import { Injectable } from '@nestjs/common';
-import { SavingsProductDto } from './dto/savings-product.dto';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { SavingsProduct } from './entities/savings-product.entity';
+import {
+  UserSubscription,
+  SubscriptionStatus,
+} from './entities/user-subscription.entity';
+import {
+  SavingsGoal,
+  SavingsGoalStatus,
+} from './entities/savings-goal.entity';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { User } from '../user/entities/user.entity';
+import { SavingsService as BlockchainSavingsService } from '../blockchain/savings.service';
 
-/** Static product catalogue — replace with DB/contract queries as needed. */
-const PRODUCTS: Omit<SavingsProductDto, 'tvlAmountFormatted'>[] = [
-  {
-    contractId: 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4',
-    name: 'Flexi Savings',
-    description: 'Flexible deposits with no lock-up period.',
-    apy: 5.2,
-    riskLevel: 'low',
-    tvlAmount: 1_250_000,
-  },
-  {
-    contractId: 'CBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBSC4',
-    name: 'Goal Savings',
-    description: 'Target-based savings with boosted yield.',
-    apy: 8.75,
-    riskLevel: 'medium',
-    tvlAmount: 3_400_000,
-  },
-  {
-    contractId: 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCSC4',
-    name: 'Group Savings',
-    description: 'Community pooled savings with shared rewards.',
-    apy: 11.0,
-    riskLevel: 'high',
-    tvlAmount: 780_000,
-  },
-];
+export interface SavingsGoalProgress {
+  id: string;
+  userId: string;
+  goalName: string;
+  targetAmount: number;
+  targetDate: Date;
+  status: SavingsGoalStatus;
+  metadata: SavingsGoal['metadata'];
+  createdAt: Date;
+  updatedAt: Date;
+  currentBalance: number;
+  percentageComplete: number;
+}
+
+const STROOPS_PER_XLM = 10_000_000;
 
 @Injectable()
 export class SavingsService {
-  /**
-   * Returns enriched savings products.
-   * @param sort  'apy' | 'tvl' — sort field (descending). Omit for default order.
-   * @param formatTvl  When true, includes `tvlAmountFormatted` string alongside the number.
-   */
-  getProducts(
-    sort?: 'apy' | 'tvl',
-    formatTvl = false,
-  ): SavingsProductDto[] {
-    let products: SavingsProductDto[] = PRODUCTS.map((p) => ({
-      ...p,
-      ...(formatTvl
-        ? { tvlAmountFormatted: p.tvlAmount.toLocaleString('en-US', { minimumFractionDigits: 2 }) }
-        : {}),
-    }));
+  private readonly logger = new Logger(SavingsService.name);
 
-    if (sort === 'apy') {
-      products = products.sort((a, b) => b.apy - a.apy);
-    } else if (sort === 'tvl') {
-      products = products.sort((a, b) => b.tvlAmount - a.tvlAmount);
+  constructor(
+    @InjectRepository(SavingsProduct)
+    private readonly productRepository: Repository<SavingsProduct>,
+    @InjectRepository(UserSubscription)
+    private readonly subscriptionRepository: Repository<UserSubscription>,
+    @InjectRepository(SavingsGoal)
+    private readonly goalRepository: Repository<SavingsGoal>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    private readonly blockchainSavingsService: BlockchainSavingsService,
+  ) {}
+
+  async createProduct(dto: CreateProductDto): Promise<SavingsProduct> {
+    if (dto.minAmount > dto.maxAmount) {
+      throw new BadRequestException('minAmount must be less than or equal to maxAmount');
+    }
+    const product = this.productRepository.create({
+      ...dto,
+      isActive: dto.isActive ?? true,
+    });
+    return await this.productRepository.save(product);
+  }
+
+  async updateProduct(
+    id: string,
+    dto: UpdateProductDto,
+  ): Promise<SavingsProduct> {
+    const product = await this.productRepository.findOneBy({ id });
+    if (!product) {
+      throw new NotFoundException(`Savings product ${id} not found`);
+    }
+    if (dto.minAmount != null && dto.maxAmount != null && dto.minAmount > dto.maxAmount) {
+      throw new BadRequestException('minAmount must be less than or equal to maxAmount');
+    }
+    Object.assign(product, dto);
+    return await this.productRepository.save(product);
+  }
+
+  async findAllProducts(activeOnly = false): Promise<SavingsProduct[]> {
+    return await this.productRepository.find({
+      where: activeOnly ? { isActive: true } : undefined,
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findOneProduct(id: string): Promise<SavingsProduct> {
+    const product = await this.productRepository.findOneBy({ id });
+    if (!product) {
+      throw new NotFoundException(`Savings product ${id} not found`);
+    }
+    return product;
+  }
+
+  async subscribe(
+    userId: string,
+    productId: string,
+    amount: number,
+  ): Promise<UserSubscription> {
+    const product = await this.findOneProduct(productId);
+    if (!product.isActive) {
+      throw new BadRequestException('This savings product is not available for subscription');
+    }
+    if (amount < Number(product.minAmount) || amount > Number(product.maxAmount)) {
+      throw new BadRequestException(
+        `Amount must be between ${product.minAmount} and ${product.maxAmount}`,
+      );
     }
 
-    return products;
+    const subscription = this.subscriptionRepository.create({
+      userId,
+      productId: product.id,
+      amount,
+      status: SubscriptionStatus.ACTIVE,
+      startDate: new Date(),
+      endDate: product.tenureMonths
+        ? (() => {
+            const d = new Date();
+            d.setMonth(d.getMonth() + product.tenureMonths!);
+            return d;
+          })()
+        : null,
+    });
+    return await this.subscriptionRepository.save(subscription);
+  }
+
+  async findMySubscriptions(userId: string): Promise<UserSubscription[]> {
+    return await this.subscriptionRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findMyGoals(userId: string): Promise<SavingsGoalProgress[]> {
+    const [goals, user] = await Promise.all([
+      this.goalRepository.find({
+        where: { userId },
+        order: { createdAt: 'DESC' },
+      }),
+      this.userRepository.findOne({
+        where: { id: userId },
+        select: ['id', 'publicKey'],
+      }),
+    ]);
+
+    if (!goals.length) {
+      return [];
+    }
+
+    const liveVaultBalanceStroops = user?.publicKey
+      ? (await this.blockchainSavingsService.getUserSavingsBalance(user.publicKey))
+          .total
+      : 0;
+
+    return goals.map((goal) =>
+      this.mapGoalWithProgress(goal, liveVaultBalanceStroops),
+    );
+  }
+
+  private mapGoalWithProgress(
+    goal: SavingsGoal,
+    liveVaultBalanceStroops: number,
+  ): SavingsGoalProgress {
+    const targetAmount = Number(goal.targetAmount);
+    const currentBalance = this.stroopsToDecimal(liveVaultBalanceStroops);
+    const percentageComplete = this.calculatePercentageComplete(
+      liveVaultBalanceStroops,
+      targetAmount,
+    );
+
+    return {
+      id: goal.id,
+      userId: goal.userId,
+      goalName: goal.goalName,
+      targetAmount,
+      targetDate: goal.targetDate,
+      status: goal.status,
+      metadata: goal.metadata,
+      createdAt: goal.createdAt,
+      updatedAt: goal.updatedAt,
+      currentBalance,
+      percentageComplete,
+    };
+  }
+
+  private calculatePercentageComplete(
+    liveVaultBalanceStroops: number,
+    targetAmount: number,
+  ): number {
+    if (targetAmount <= 0) {
+      return 0;
+    }
+
+    const targetAmountStroops = Math.round(targetAmount * STROOPS_PER_XLM);
+    if (targetAmountStroops <= 0) {
+      return 0;
+    }
+
+    const percentage = (liveVaultBalanceStroops / targetAmountStroops) * 100;
+
+    return Math.max(0, Math.min(100, Math.round(percentage)));
+  }
+
+  private stroopsToDecimal(amountInStroops: number): number {
+    return Number((amountInStroops / STROOPS_PER_XLM).toFixed(2));
   }
 }

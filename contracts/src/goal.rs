@@ -34,7 +34,7 @@ pub fn create_goal_save(
     let fee_bps: u32 = env
         .storage()
         .instance()
-        .get(&DataKey::PlatformFee)
+        .get(&DataKey::DepositFeeBps)
         .unwrap_or(0);
 
     let fee_amount = calculate_fee(initial_deposit, fee_bps)?;
@@ -87,10 +87,15 @@ pub fn create_goal_save(
                 fee_amount,
             );
         }
+        // Record fee in treasury struct
+        crate::treasury::record_fee(env, fee_amount, soroban_sdk::Symbol::new(env, "deposit"));
     }
 
     add_goal_to_user(env, &user, goal_id);
     increment_next_goal_id(env);
+
+    // Award deposit points
+    storage::award_deposit_points(env, user.clone(), initial_deposit)?;
 
     // Extend TTL for new goal save and user data
     ttl::extend_goal_ttl(env, goal_id);
@@ -126,7 +131,7 @@ pub fn deposit_to_goal_save(
     let fee_bps: u32 = env
         .storage()
         .instance()
-        .get(&DataKey::PlatformFee)
+        .get(&DataKey::DepositFeeBps)
         .unwrap_or(0);
 
     let fee_amount = calculate_fee(amount, fee_bps)?;
@@ -178,7 +183,10 @@ pub fn deposit_to_goal_save(
                 fee_amount,
             );
         }
+        // Record fee in treasury struct
+        crate::treasury::record_fee(env, fee_amount, soroban_sdk::Symbol::new(env, "deposit"));
     }
+    storage::award_deposit_points(env, user.clone(), amount)?;
 
     Ok(())
 }
@@ -213,7 +221,7 @@ pub fn withdraw_completed_goal_save(
     let fee_bps: u32 = env
         .storage()
         .instance()
-        .get(&DataKey::PlatformFee)
+        .get(&DataKey::WithdrawalFeeBps)
         .unwrap_or(0);
 
     let fee_amount = calculate_fee(goal_save.current_amount, fee_bps)?;
@@ -263,6 +271,8 @@ pub fn withdraw_completed_goal_save(
                 fee_amount,
             );
         }
+        // Record fee in treasury struct
+        crate::treasury::record_fee(env, fee_amount, soroban_sdk::Symbol::new(env, "withdraw"));
     }
 
     Ok(net_amount)
@@ -389,7 +399,7 @@ pub fn get_user_goal_saves(env: &Env, user: &Address) -> Vec<u64> {
         .unwrap_or_else(|| Vec::new(env));
 
     // Extend TTL on list access
-    if goals.len() > 0 {
+    if !goals.is_empty() {
         ttl::extend_user_plan_list_ttl(env, &list_key);
     }
 
@@ -489,6 +499,10 @@ mod tests {
             long_lock_bonus_bps: 0,
             goal_completion_bonus: completion_bonus,
             enabled,
+            min_deposit_for_rewards: 0,
+            action_cooldown_seconds: 0,
+            max_daily_points: 1_000_000,
+            max_streak_multiplier: 10_000,
         };
         assert!(client.try_initialize_rewards_config(&config).is_ok());
     }
@@ -769,7 +783,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Error(Contract, #1)")]
     fn test_break_unauthorized_fails() {
-        let (env, client) = setup_test_env();
+        let (env, client, _admin) = setup_admin_env();
         let user1 = Address::generate(&env);
         let user2 = Address::generate(&env);
 
@@ -818,14 +832,14 @@ mod tests {
 
     #[test]
     fn test_goal_create_with_protocol_fee() {
-        let (env, client, _admin) = setup_admin_env();
+        let (env, client, admin) = setup_admin_env();
         let user = Address::generate(&env);
         let treasury = Address::generate(&env);
 
         env.mock_all_auths();
         client.initialize_user(&user);
         assert!(client.try_set_fee_recipient(&treasury).is_ok());
-        assert!(client.try_set_protocol_fee_bps(&500).is_ok()); // 5%
+        assert!(client.try_set_fees(&admin, &500, &500, &500).is_ok()); // 5%
 
         let goal_name = Symbol::new(&env, "vacation");
         let target = 10_000i128;
@@ -841,14 +855,14 @@ mod tests {
 
     #[test]
     fn test_goal_deposit_with_protocol_fee() {
-        let (env, client, _admin) = setup_admin_env();
+        let (env, client, admin) = setup_admin_env();
         let user = Address::generate(&env);
         let treasury = Address::generate(&env);
 
         env.mock_all_auths();
         client.initialize_user(&user);
         assert!(client.try_set_fee_recipient(&treasury).is_ok());
-        assert!(client.try_set_protocol_fee_bps(&300).is_ok()); // 3%
+        assert!(client.try_set_fees(&admin, &300, &300, &300).is_ok()); // 3%
 
         let goal_name = Symbol::new(&env, "house");
         let target = 10_000i128;
@@ -870,14 +884,14 @@ mod tests {
 
     #[test]
     fn test_goal_withdraw_with_protocol_fee() {
-        let (env, client, _admin) = setup_admin_env();
+        let (env, client, admin) = setup_admin_env();
         let user = Address::generate(&env);
         let treasury = Address::generate(&env);
 
         env.mock_all_auths();
         client.initialize_user(&user);
         assert!(client.try_set_fee_recipient(&treasury).is_ok());
-        assert!(client.try_set_protocol_fee_bps(&250).is_ok()); // 2.5%
+        assert!(client.try_set_fees(&admin, &250, &250, &250).is_ok()); // 2.5%
 
         let goal_name = Symbol::new(&env, "laptop");
         let target = 4_000i128;
@@ -920,14 +934,14 @@ mod tests {
 
     #[test]
     fn test_goal_fee_calculation_correctness() {
-        let (env, client, _admin) = setup_admin_env();
+        let (env, client, admin) = setup_admin_env();
         let user = Address::generate(&env);
         let treasury = Address::generate(&env);
 
         env.mock_all_auths();
         client.initialize_user(&user);
         assert!(client.try_set_fee_recipient(&treasury).is_ok());
-        assert!(client.try_set_protocol_fee_bps(&1000).is_ok()); // 10%
+        assert!(client.try_set_fees(&admin, &1000, &1000, &1000).is_ok()); // 10%
 
         let goal_name = Symbol::new(&env, "test");
         let target = 10_000i128;
@@ -943,14 +957,14 @@ mod tests {
 
     #[test]
     fn test_goal_small_amount_fee_edge_case() {
-        let (env, client, _admin) = setup_admin_env();
+        let (env, client, admin) = setup_admin_env();
         let user = Address::generate(&env);
         let treasury = Address::generate(&env);
 
         env.mock_all_auths();
         client.initialize_user(&user);
         assert!(client.try_set_fee_recipient(&treasury).is_ok());
-        assert!(client.try_set_protocol_fee_bps(&100).is_ok()); // 1%
+        assert!(client.try_set_fees(&admin, &100, &100, &100).is_ok()); // 1%
 
         let goal_name = Symbol::new(&env, "small");
         let target = 1_000i128;
@@ -978,11 +992,13 @@ mod tests {
 
         client.deposit_to_goal_save(&user, &goal_id, &1_000);
         let rewards_after_completion = client.get_user_rewards(&user);
-        assert_eq!(rewards_after_completion.total_points, 250);
+        // Base points: (4000 + 1000) * 10 = 50000
+        // Completion bonus: 250
+        assert_eq!(rewards_after_completion.total_points, 50250);
 
         let _ = client.withdraw_completed_goal_save(&user, &goal_id);
         let rewards_after_withdraw = client.get_user_rewards(&user);
-        assert_eq!(rewards_after_withdraw.total_points, 250);
+        assert_eq!(rewards_after_withdraw.total_points, 50250);
     }
 
     #[test]
@@ -1000,7 +1016,8 @@ mod tests {
         assert!(!goal_save.is_completed);
 
         let rewards = client.get_user_rewards(&user);
-        assert_eq!(rewards.total_points, 0);
+        // Base points: 4999 * 10 = 49990
+        assert_eq!(rewards.total_points, 49990);
     }
 
     #[test]
@@ -1018,7 +1035,9 @@ mod tests {
         assert!(goal.is_completed);
 
         let rewards = client.get_user_rewards(&user);
-        assert_eq!(rewards.total_points, 250);
+        // Base points: 5000 * 10 = 50000
+        // Completion bonus: 250
+        assert_eq!(rewards.total_points, 50250);
     }
 
     #[test]
@@ -1051,6 +1070,7 @@ mod tests {
         let _ = client.break_goal_save(&user, &goal_id);
 
         let rewards = client.get_user_rewards(&user);
-        assert_eq!(rewards.total_points, 0);
+        // Base points: 2000 * 10 = 20000
+        assert_eq!(rewards.total_points, 20000);
     }
 }

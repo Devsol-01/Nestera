@@ -209,6 +209,36 @@ pub enum SavingsError {
     ///
     /// Config initialization can only happen once.
     ConfigAlreadyInitialized = 91,
+
+    /// Returned when attempting to operate on a disabled strategy.
+    ///
+    /// Emergency withdraw has been executed and strategy is now disabled.
+    StrategyDisabled = 92,
+
+    /// Returned when the specified strategy does not exist.
+    ///
+    /// This occurs when querying a non-existent strategy.
+    StrategyNotFound = 93,
+
+    /// Returned when attempting to withdraw from a plan that has already been withdrawn.
+    AlreadyWithdrawn = 94,
+
+    /// Returned when the specified lock plan does not exist.
+    LockNotFound = 95,
+
+    /// Returned when attempting to register a strategy that already exists.
+    StrategyAlreadyRegistered = 96,
+
+    /// Returned when a reentrant call is detected during an external strategy interaction.
+    ///
+    /// This is triggered by the reentrancy guard when a second call tries to enter
+    /// a strategy function while the first is still in progress.
+    ReentrancyDetected = 97,
+
+    /// Returned when an external strategy call returns an invalid response.
+    ///
+    /// E.g. the actual returned amount is 0 or negative when a positive value was expected.
+    InvalidStrategyResponse = 98,
 }
 
 #[cfg(test)]
@@ -254,6 +284,11 @@ mod tests {
             SavingsError::InvariantViolation as u32,
             SavingsError::InvalidFeeBps as u32,
             SavingsError::ConfigAlreadyInitialized as u32,
+            SavingsError::StrategyNotFound as u32,
+            SavingsError::StrategyAlreadyRegistered as u32,
+            SavingsError::StrategyDisabled as u32,
+            SavingsError::ReentrancyDetected as u32,
+            SavingsError::InvalidStrategyResponse as u32,
         ];
 
         let mut sorted = errors.clone();

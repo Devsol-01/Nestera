@@ -190,9 +190,9 @@ mod autosave_tests {
 
         // All should succeed
         assert_eq!(results.len(), 3);
-        assert_eq!(results.get(0).unwrap(), true);
-        assert_eq!(results.get(1).unwrap(), true);
-        assert_eq!(results.get(2).unwrap(), true);
+        assert!(results.get(0).unwrap());
+        assert!(results.get(1).unwrap());
+        assert!(results.get(2).unwrap());
 
         // Verify total Flexi balance = 500 + 300 + 200 = 1000
         let balance = client.get_flexi_balance(&user);
@@ -213,8 +213,8 @@ mod autosave_tests {
 
         // Both should be skipped (not due)
         assert_eq!(results.len(), 2);
-        assert_eq!(results.get(0).unwrap(), false);
-        assert_eq!(results.get(1).unwrap(), false);
+        assert!(!results.get(0).unwrap());
+        assert!(!results.get(1).unwrap());
 
         // Balance should remain 0
         let balance = client.get_flexi_balance(&user);
@@ -231,9 +231,9 @@ mod autosave_tests {
 
         // All should be false (not found)
         assert_eq!(results.len(), 3);
-        assert_eq!(results.get(0).unwrap(), false);
-        assert_eq!(results.get(1).unwrap(), false);
-        assert_eq!(results.get(2).unwrap(), false);
+        assert!(!results.get(0).unwrap());
+        assert!(!results.get(1).unwrap());
+        assert!(!results.get(2).unwrap());
     }
 
     #[test]
@@ -253,8 +253,8 @@ mod autosave_tests {
 
         // id1 should be false (inactive), id2 should be true (due and active)
         assert_eq!(results.len(), 2);
-        assert_eq!(results.get(0).unwrap(), false);
-        assert_eq!(results.get(1).unwrap(), true);
+        assert!(!results.get(0).unwrap());
+        assert!(results.get(1).unwrap());
 
         // Only id2's 2000 should have been deposited
         let balance = client.get_flexi_balance(&user);
@@ -285,11 +285,11 @@ mod autosave_tests {
         let results = client.execute_due_autosaves(&schedule_ids);
 
         assert_eq!(results.len(), 5);
-        assert_eq!(results.get(0).unwrap(), true); // id1: due, active -> executed
-        assert_eq!(results.get(1).unwrap(), false); // id2: not due -> skipped
-        assert_eq!(results.get(2).unwrap(), true); // id3: due, active -> executed
-        assert_eq!(results.get(3).unwrap(), false); // id4: inactive -> skipped
-        assert_eq!(results.get(4).unwrap(), false); // fake_id: not found -> skipped
+        assert!(results.get(0).unwrap()); // id1: due, active -> executed
+        assert!(!results.get(1).unwrap()); // id2: not due -> skipped
+        assert!(results.get(2).unwrap()); // id3: due, active -> executed
+        assert!(!results.get(3).unwrap()); // id4: inactive -> skipped
+        assert!(!results.get(4).unwrap()); // fake_id: not found -> skipped
 
         // Only id1 (500) and id3 (200) executed -> balance = 700
         let balance = client.get_flexi_balance(&user);
@@ -308,7 +308,7 @@ mod autosave_tests {
         let schedule_ids = soroban_sdk::vec![&env, id1];
         let results = client.execute_due_autosaves(&schedule_ids);
 
-        assert_eq!(results.get(0).unwrap(), true);
+        assert!(results.get(0).unwrap());
 
         // Verify next_execution_time was advanced
         let schedule = client.get_autosave(&id1).unwrap();
@@ -343,8 +343,8 @@ mod autosave_tests {
         let schedule_ids = soroban_sdk::vec![&env, id1, id2];
         let results = client.execute_due_autosaves(&schedule_ids);
 
-        assert_eq!(results.get(0).unwrap(), true);
-        assert_eq!(results.get(1).unwrap(), true);
+        assert!(results.get(0).unwrap());
+        assert!(results.get(1).unwrap());
 
         // Verify per-user Flexi balances
         assert_eq!(client.get_flexi_balance(&user1), 500);

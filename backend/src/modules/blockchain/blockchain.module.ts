@@ -1,15 +1,21 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ScheduleModule } from '@nestjs/schedule';
-import { IndexerService } from './indexer.service';
-import { DeadLetterEvent } from './entities/dead-letter-event.entity';
+import { StellarService } from './stellar.service';
+import { SavingsService } from './savings.service';
+import { BlockchainController } from './blockchain.controller';
+import { StellarEventListenerService } from './stellar-event-listener.service';
+import { StellarEventListenerController } from './stellar-event-listener.controller';
+import { ProcessedStellarEvent } from './entities/processed-event.entity';
+import { MedicalClaim } from '../claims/entities/medical-claim.entity';
 
+@Global()
 @Module({
   imports: [
-    ScheduleModule.forRoot(),
-    TypeOrmModule.forFeature([DeadLetterEvent]),
+    TypeOrmModule.forFeature([ProcessedStellarEvent, MedicalClaim]),
   ],
-  providers: [IndexerService],
-  exports: [IndexerService],
+  controllers: [BlockchainController, StellarEventListenerController],
+  providers: [StellarService, SavingsService, StellarEventListenerService],
+  exports: [StellarService, SavingsService, StellarEventListenerService],
 })
-export class BlockchainModule {}
+export class BlockchainModule { }
+

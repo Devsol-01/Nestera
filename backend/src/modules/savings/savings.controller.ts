@@ -1,29 +1,83 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBody,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { SavingsService } from './savings.service';
-import { SavingsProductDto } from './dto/savings-product.dto';
+import { SavingsProduct } from './entities/savings-product.entity';
+import { UserSubscription } from './entities/user-subscription.entity';
+import { SubscribeDto } from './dto/subscribe.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { SavingsGoalProgress } from './savings.service';
 
 @ApiTags('savings')
 @Controller('savings')
 export class SavingsController {
   constructor(private readonly savingsService: SavingsService) {}
 
-  /**
-   * GET /savings/products
-   *
-   * Query params:
-   *   sort=apy|tvl   — sort results descending by APY or TVL
-   *   formatTvl=true — include string-formatted TVL alongside the numeric value
-   */
   @Get('products')
-  @ApiOperation({ summary: 'List savings products with enriched metadata' })
-  @ApiQuery({ name: 'sort', required: false, enum: ['apy', 'tvl'], description: 'Sort field (descending)' })
-  @ApiQuery({ name: 'formatTvl', required: false, type: Boolean, description: 'Include formatted TVL string' })
-  @ApiResponse({ status: 200, type: [SavingsProductDto] })
-  getProducts(
-    @Query('sort') sort?: 'apy' | 'tvl',
-    @Query('formatTvl') formatTvl?: string,
-  ): SavingsProductDto[] {
-    return this.savingsService.getProducts(sort, formatTvl === 'true');
+  @ApiOperation({ summary: 'List all savings products' })
+  @ApiResponse({ status: 200, description: 'List of savings products' })
+  async getProducts(): Promise<SavingsProduct[]> {
+    return await this.savingsService.findAllProducts(true);
+  }
+
+  @Post('subscribe')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Subscribe to a savings product' })
+  @ApiBody({ type: SubscribeDto })
+  @ApiResponse({ status: 201, description: 'Subscription created', type: UserSubscription })
+  @ApiResponse({ status: 400, description: 'Invalid product or amount' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async subscribe(
+    @Body() dto: SubscribeDto,
+    @CurrentUser() user: { id: string; email: string },
+  ): Promise<UserSubscription> {
+    return await this.savingsService.subscribe(user.id, dto.productId, dto.amount);
+  }
+
+  @Get('my-subscriptions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user subscriptions' })
+  @ApiResponse({ status: 200, description: 'List of user subscriptions' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getMySubscriptions(
+    @CurrentUser() user: { id: string; email: string },
+  ): Promise<UserSubscription[]> {
+    return await this.savingsService.findMySubscriptions(user.id);
+  }
+
+  @Get('my-goals')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Get current user savings goals enriched with live Soroban balance progress',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'List of savings goals with current balance and percentage completion',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getMyGoals(
+    @CurrentUser() user: { id: string; email: string },
+  ): Promise<SavingsGoalProgress[]> {
+    return await this.savingsService.findMyGoals(user.id);
   }
 }

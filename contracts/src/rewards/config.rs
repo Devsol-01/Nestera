@@ -58,5 +58,15 @@ fn validate_config(config: &RewardsConfig) -> Result<(), SavingsError> {
     if config.streak_bonus_bps > 10_000 || config.long_lock_bonus_bps > 10_000 {
         return Err(SavingsError::InvalidFeeBps);
     }
+
+    // Validate anti-farming parameters
+    if config.max_streak_multiplier > 10_000 {
+        return Err(SavingsError::InvalidFeeBps);
+    }
+
+    if config.min_deposit_for_rewards < 0 {
+        return Err(SavingsError::InvalidAmount);
+    }
+
     Ok(())
 }
