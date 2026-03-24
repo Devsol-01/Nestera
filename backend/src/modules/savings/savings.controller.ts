@@ -14,13 +14,16 @@ import {
   ApiBody,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { SavingsService } from './savings.service';
+import {
+  SavingsGoalProgress,
+  SavingsService,
+  SubscriptionWithYield,
+} from './savings.service';
 import { SavingsProduct } from './entities/savings-product.entity';
 import { UserSubscription } from './entities/user-subscription.entity';
 import { SubscribeDto } from './dto/subscribe.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { SavingsGoalProgress } from './savings.service';
 
 @ApiTags('savings')
 @Controller('savings')
@@ -40,14 +43,22 @@ export class SavingsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Subscribe to a savings product' })
   @ApiBody({ type: SubscribeDto })
-  @ApiResponse({ status: 201, description: 'Subscription created', type: UserSubscription })
+  @ApiResponse({
+    status: 201,
+    description: 'Subscription created',
+    type: UserSubscription,
+  })
   @ApiResponse({ status: 400, description: 'Invalid product or amount' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async subscribe(
     @Body() dto: SubscribeDto,
     @CurrentUser() user: { id: string; email: string },
   ): Promise<UserSubscription> {
-    return await this.savingsService.subscribe(user.id, dto.productId, dto.amount);
+    return await this.savingsService.subscribe(
+      user.id,
+      dto.productId,
+      dto.amount,
+    );
   }
 
   @Get('my-subscriptions')
@@ -58,7 +69,7 @@ export class SavingsController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getMySubscriptions(
     @CurrentUser() user: { id: string; email: string },
-  ): Promise<UserSubscription[]> {
+  ): Promise<SubscriptionWithYield[]> {
     return await this.savingsService.findMySubscriptions(user.id);
   }
 

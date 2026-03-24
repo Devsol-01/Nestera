@@ -2,21 +2,26 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { SavingsService } from './savings.service';
 import { SavingsProduct } from './entities/savings-product.entity';
-import { UserSubscription } from './entities/user-subscription.entity';
 import {
-  SavingsGoal,
-  SavingsGoalStatus,
-} from './entities/savings-goal.entity';
+  UserSubscription,
+  SubscriptionStatus,
+} from './entities/user-subscription.entity';
+import { SavingsGoal, SavingsGoalStatus } from './entities/savings-goal.entity';
 import { User } from '../user/entities/user.entity';
 import { SavingsService as BlockchainSavingsService } from '../blockchain/savings.service';
 
 describe('SavingsService', () => {
   let service: SavingsService;
+  let subscriptionRepository: { find: jest.Mock };
   let goalRepository: { find: jest.Mock };
   let userRepository: { findOne: jest.Mock };
   let blockchainSavingsService: { getUserSavingsBalance: jest.Mock };
 
   beforeEach(async () => {
+    subscriptionRepository = {
+      find: jest.fn(),
+    };
+
     goalRepository = {
       find: jest.fn(),
     };
@@ -38,7 +43,7 @@ describe('SavingsService', () => {
         },
         {
           provide: getRepositoryToken(UserSubscription),
-          useValue: {},
+          useValue: subscriptionRepository,
         },
         {
           provide: getRepositoryToken(SavingsGoal),
@@ -56,6 +61,53 @@ describe('SavingsService', () => {
     }).compile();
 
     service = module.get<SavingsService>(SavingsService);
+  });
+
+  describe('findMySubscriptions', () => {
+    const SECONDS_PER_YEAR = 365.25 * 24 * 60 * 60;
+
+    it('attaches estimatedYieldPerSecond derived from interestRate and amount', async () => {
+      subscriptionRepository.find.mockResolvedValue([
+        {
+          id: 'sub-1',
+          userId: 'user-1',
+          amount: 1000,
+          status: SubscriptionStatus.ACTIVE,
+          product: { interestRate: 10 }, // 10% APY
+        },
+      ]);
+
+      const result = await service.findMySubscriptions('user-1');
+
+      const expected = parseFloat(
+        ((1000 * 0.1) / SECONDS_PER_YEAR).toFixed(10),
+      );
+      expect(result[0].estimatedYieldPerSecond).toBe(expected);
+    });
+
+    it('returns 0 yield for non-ACTIVE subscriptions', async () => {
+      subscriptionRepository.find.mockResolvedValue([
+        {
+          id: 'sub-2',
+          userId: 'user-1',
+          amount: 5000,
+          status: SubscriptionStatus.MATURED,
+          product: { interestRate: 8.5 },
+        },
+        {
+          id: 'sub-3',
+          userId: 'user-1',
+          amount: 2000,
+          status: SubscriptionStatus.CANCELLED,
+          product: { interestRate: 5 },
+        },
+      ]);
+
+      const result = await service.findMySubscriptions('user-1');
+
+      expect(result[0].estimatedYieldPerSecond).toBe(0);
+      expect(result[1].estimatedYieldPerSecond).toBe(0);
+    });
   });
 
   it('returns goals enriched with percentageComplete from live vault balances', async () => {
@@ -118,7 +170,9 @@ describe('SavingsService', () => {
         percentageComplete: 0,
       }),
     ]);
-    expect(blockchainSavingsService.getUserSavingsBalance).not.toHaveBeenCalled();
+    expect(
+      blockchainSavingsService.getUserSavingsBalance,
+    ).not.toHaveBeenCalled();
   });
 
   it('caps progress at 100 percent', async () => {
