@@ -23,6 +23,8 @@ import { IndexerService } from './indexer.service';
 import { BalanceSyncService } from './balance-sync.service';
 import { ProtocolMetrics } from '../admin-analytics/entities/protocol-metrics.entity';
 import { RetryService } from './services/retry.service';
+import { BalanceSnapshot } from './entities/balance-snapshot.entity';
+import { ReorgHistory } from './entities/reorg-history.entity';
 
 @Global()
 @Module({
@@ -42,6 +44,8 @@ import { RetryService } from './services/retry.service';
       UserSubscription,
       SavingsProduct,
       ProtocolMetrics,
+      BalanceSnapshot,
+      ReorgHistory,
     ]),
   ],
   controllers: [BlockchainController, StellarEventListenerController],
