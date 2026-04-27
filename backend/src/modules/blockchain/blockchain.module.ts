@@ -12,6 +12,8 @@ import { ProcessedStellarEvent } from './entities/processed-event.entity';
 import { LedgerTransaction } from './entities/transaction.entity';
 import { DeadLetterEvent } from './entities/dead-letter-event.entity';
 import { IndexerState } from './entities/indexer-state.entity';
+import { ReorgAuditLog } from './entities/reorg-audit-log.entity';
+import { ReorgAffectedTransaction } from './entities/reorg-affected-transaction.entity';
 import { MedicalClaim } from '../claims/entities/medical-claim.entity';
 import { User } from '../user/entities/user.entity';
 import { UserSubscription } from '../savings/entities/user-subscription.entity';
@@ -22,6 +24,7 @@ import { YieldHandler } from './event-handlers/yield.handler';
 import { IndexerService } from './indexer.service';
 import { BalanceSyncService } from './balance-sync.service';
 import { ProtocolMetrics } from '../admin-analytics/entities/protocol-metrics.entity';
+import { MailService } from '../mail/mail.service';
 
 @Global()
 @Module({
@@ -37,6 +40,8 @@ import { ProtocolMetrics } from '../admin-analytics/entities/protocol-metrics.en
       LedgerTransaction,
       DeadLetterEvent,
       IndexerState,
+      ReorgAuditLog,
+      ReorgAffectedTransaction,
       User,
       UserSubscription,
       SavingsProduct,
@@ -49,6 +54,7 @@ import { ProtocolMetrics } from '../admin-analytics/entities/protocol-metrics.en
     SavingsService,
     OracleService,
     StellarEventListenerService,
+    MailService,
     IndexerService,
     DepositHandler,
     WithdrawHandler,

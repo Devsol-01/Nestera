@@ -119,7 +119,7 @@ export class YieldHandler {
     return true;
   }
 
-  private isYieldTopic(topic: unknown[] | undefined): boolean {
+  isYieldTopic(topic: unknown[] | undefined): boolean {
     if (!Array.isArray(topic) || topic.length === 0) {
       return false;
     }

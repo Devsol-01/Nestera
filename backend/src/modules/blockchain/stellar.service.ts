@@ -257,6 +257,55 @@ export class StellarService implements OnModuleInit {
     }
   }
 
+  /**
+   * Fetch ledger headers for multiple ledger sequences
+   * Used for reorg detection by comparing ledger hashes
+   * @returns Map of ledger sequence -> { hash, previousHash }
+   */
+  async getLedgers(
+    ledgerSequences: number[],
+  ): Promise<Record<number, { hash: string; previousHash: string }>> {
+    if (ledgerSequences.length === 0) return {};
+
+    const ledgerMap: Record<number, { hash: string; previousHash: string }> =
+      {};
+
+    try {
+      // Use Horizon to fetch ledger info by sequence
+      const horizon = this.rpcClient.getCurrentHorizonServer();
+
+      // Fetch in batches to avoid overwhelming the API
+      const batchSize = 50;
+      for (let i = 0; i < ledgerSequences.length; i += batchSize) {
+        const batch = ledgerSequences.slice(i, i + batchSize);
+
+        await Promise.all(
+          batch.map(async (seq) => {
+            try {
+              const ledger = await horizon.ledgers().sequence(seq).call();
+              ledgerMap[seq] = {
+                hash: ledger.hash,
+                previousHash: ledger.previous_hash,
+              };
+            } catch (err) {
+              this.logger.debug(
+                `Ledger ${seq} not found (possibly pruned): ${(err as Error).message}`,
+              );
+            }
+          }),
+        );
+      }
+
+      return ledgerMap;
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch ledgers: ${(error as Error).message}`,
+        error,
+      );
+      return ledgerMap;
+    }
+  }
+
   generateKeypair(): { publicKey: string; secretKey: string } {
     const keypair = Keypair.random();
     return {

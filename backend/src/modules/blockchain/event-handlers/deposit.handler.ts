@@ -134,7 +134,7 @@ export class DepositHandler {
     return true;
   }
 
-  private isDepositTopic(topic: unknown[] | undefined): boolean {
+  isDepositTopic(topic: unknown[] | undefined): boolean {
     if (!Array.isArray(topic) || topic.length === 0) {
       return false;
     }

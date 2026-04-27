@@ -118,7 +118,7 @@ export class WithdrawHandler {
     return true;
   }
 
-  private isWithdrawTopic(topic: unknown[] | undefined): boolean {
+  isWithdrawTopic(topic: unknown[] | undefined): boolean {
     if (!Array.isArray(topic) || topic.length === 0) {
       return false;
     }
