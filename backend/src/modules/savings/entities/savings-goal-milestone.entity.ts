@@ -34,7 +34,11 @@ export class SavingsGoalMilestone {
   @Column({ type: 'varchar', length: 255 })
   label: string;
 
-  @Column({ type: 'enum', enum: MilestoneType, default: MilestoneType.AUTOMATIC })
+  @Column({
+    type: 'enum',
+    enum: MilestoneType,
+    default: MilestoneType.AUTOMATIC,
+  })
   type: MilestoneType;
 
   /** Whether this milestone has been achieved */

@@ -20,7 +20,7 @@ const PASSWORD_RULES = {
   uppercase: /[A-Z]/,
   lowercase: /[a-z]/,
   digit: /[0-9]/,
-  special: /[!@#$%^&*()\-_=+\[\]{};:'",.<>?/\\|`~]/,
+  special: /[!@#$%^&*()\-_=+[\]{};:'",.<>?/\\|`~]/,
 } as const;
 
 /**
@@ -35,9 +35,7 @@ export function getPasswordErrors(value: unknown): string[] {
   const errors: string[] = [];
 
   if (value.length < PASSWORD_RULES.minLength) {
-    errors.push(
-      `at least ${PASSWORD_RULES.minLength} characters`,
-    );
+    errors.push(`at least ${PASSWORD_RULES.minLength} characters`);
   }
   if (!PASSWORD_RULES.uppercase.test(value)) {
     errors.push('at least one uppercase letter (A-Z)');
@@ -49,9 +47,7 @@ export function getPasswordErrors(value: unknown): string[] {
     errors.push('at least one digit (0-9)');
   }
   if (!PASSWORD_RULES.special.test(value)) {
-    errors.push(
-      'at least one special character (!@#$%^&*…)',
-    );
+    errors.push('at least one special character (!@#$%^&*…)');
   }
 
   return errors;

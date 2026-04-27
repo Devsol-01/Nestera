@@ -111,7 +111,10 @@ export class AuthRateLimitService {
    */
   async getProgressiveDelay(identifier: string): Promise<number> {
     const attempts = await this.getFailedAttemptCount(identifier);
-    const delayIndex = Math.min(attempts - 1, this.PROGRESSIVE_DELAYS.length - 1);
+    const delayIndex = Math.min(
+      attempts - 1,
+      this.PROGRESSIVE_DELAYS.length - 1,
+    );
     return delayIndex >= 0 ? this.PROGRESSIVE_DELAYS[delayIndex] : 0;
   }
 
@@ -254,7 +257,8 @@ export class AuthRateLimitService {
       lockedAt: Date.now(),
       expiresAt: Date.now() + this.ACCOUNT_LOCK_DURATION,
       attemptCount,
-      requiresEmailVerification: attemptCount >= this.ACCOUNT_LOCK_THRESHOLD + 5, // Extra strict after 10 attempts
+      requiresEmailVerification:
+        attemptCount >= this.ACCOUNT_LOCK_THRESHOLD + 5, // Extra strict after 10 attempts
     };
 
     const key = `auth:locked:${identifier}`;
@@ -271,7 +275,9 @@ export class AuthRateLimitService {
   /**
    * Get account lock info
    */
-  async getAccountLockInfo(identifier: string): Promise<AccountLockInfo | null> {
+  async getAccountLockInfo(
+    identifier: string,
+  ): Promise<AccountLockInfo | null> {
     const key = `auth:locked:${identifier}`;
     const result = await this.cacheManager.get<AccountLockInfo>(key);
     return result || null;
@@ -317,7 +323,9 @@ export class AuthRateLimitService {
       return {
         blocked: true,
         reason: 'IP address temporarily banned due to suspicious activity',
-        retryAfter: banInfo ? Math.ceil((banInfo.expiresAt - Date.now()) / 1000) : 3600,
+        retryAfter: banInfo
+          ? Math.ceil((banInfo.expiresAt - Date.now()) / 1000)
+          : 3600,
       };
     }
 
@@ -329,7 +337,9 @@ export class AuthRateLimitService {
         reason: lockInfo?.requiresEmailVerification
           ? 'Account locked. Email verification required to unlock.'
           : 'Account temporarily locked due to multiple failed attempts',
-        retryAfter: lockInfo ? Math.ceil((lockInfo.expiresAt - Date.now()) / 1000) : 3600,
+        retryAfter: lockInfo
+          ? Math.ceil((lockInfo.expiresAt - Date.now()) / 1000)
+          : 3600,
       };
     }
 

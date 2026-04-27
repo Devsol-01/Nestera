@@ -89,8 +89,14 @@ export class AuthRateLimitGuard implements CanActivate {
     const failedAttempts =
       await this.authRateLimitService.getFailedAttemptCount(identifierOrIp);
     response.setHeader('X-RateLimit-Limit', config.limit);
-    response.setHeader('X-RateLimit-Remaining', Math.max(0, config.limit - failedAttempts));
-    response.setHeader('X-RateLimit-Reset', new Date(Date.now() + config.ttl).toISOString());
+    response.setHeader(
+      'X-RateLimit-Remaining',
+      Math.max(0, config.limit - failedAttempts),
+    );
+    response.setHeader(
+      'X-RateLimit-Reset',
+      new Date(Date.now() + config.ttl).toISOString(),
+    );
 
     return true;
   }

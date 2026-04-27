@@ -9,7 +9,10 @@ export enum LeaderboardPeriod {
 }
 
 export class LeaderboardQueryDto {
-  @ApiPropertyOptional({ enum: LeaderboardPeriod, default: LeaderboardPeriod.ALL_TIME })
+  @ApiPropertyOptional({
+    enum: LeaderboardPeriod,
+    default: LeaderboardPeriod.ALL_TIME,
+  })
   @IsOptional()
   @IsEnum(LeaderboardPeriod)
   period?: LeaderboardPeriod = LeaderboardPeriod.ALL_TIME;

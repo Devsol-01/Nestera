@@ -16,6 +16,7 @@ import { HealthHistoryService } from './health-history.service';
 import { BlockchainModule } from '../blockchain/blockchain.module';
 import { ConnectionPoolModule } from '../../common/database/connection-pool.module';
 import { DeadLetterEvent } from '../blockchain/entities/dead-letter-event.entity';
+import { StellarEventListenerHealthIndicator } from '../blockchain/indicators/stellar-event-listener.health';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { DeadLetterEvent } from '../blockchain/entities/dead-letter-event.entity
     EmailServiceHealthIndicator,
     SorobanRpcHealthIndicator,
     HorizonHealthIndicator,
+    StellarEventListenerHealthIndicator,
     HealthHistoryService,
   ],
   exports: [HealthHistoryService],

@@ -12,6 +12,7 @@ import {
   HorizonHealthIndicator,
 } from './indicators/external-services.health';
 import { HealthHistoryService } from './health-history.service';
+import { StellarEventListenerHealthIndicator } from '../blockchain/indicators/stellar-event-listener.health';
 
 @ApiTags('Health')
 @Controller('health')
@@ -27,6 +28,7 @@ export class HealthController {
     private readonly sorobanRpc: SorobanRpcHealthIndicator,
     private readonly horizon: HorizonHealthIndicator,
     private readonly healthHistory: HealthHistoryService,
+    private readonly eventListener: StellarEventListenerHealthIndicator,
   ) {}
 
   @Get()
@@ -94,6 +96,7 @@ export class HealthController {
       () => this.connectionPool.isHealthy(),
       () => this.rpc.isHealthy('rpc'),
       () => this.indexer.isHealthy('indexer'),
+      () => this.eventListener.isHealthy('event-listener'),
     ]);
   }
 
@@ -109,6 +112,7 @@ export class HealthController {
       this.db.isHealthy('database'),
       this.rpc.isHealthy('rpc'),
       this.indexer.isHealthy('indexer'),
+      this.eventListener.isHealthy('event-listener'),
       this.redis.isHealthy('redis'),
       this.email.isHealthy('email'),
       this.sorobanRpc.isHealthy('soroban-rpc'),
@@ -120,6 +124,7 @@ export class HealthController {
         'database',
         'rpc',
         'indexer',
+        'event-listener',
         'redis',
         'email',
         'soroban-rpc',

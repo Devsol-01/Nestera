@@ -1474,7 +1474,7 @@ export class SavingsService {
       );
 
     const earnings = projectedBalance - amount;
-    
+
     // Applying a 1% protocol fee impact as assumed in AdminAnalyticsService
     const netEarnings = earnings * 0.99;
 

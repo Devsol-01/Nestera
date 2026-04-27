@@ -205,7 +205,9 @@ export class RewardsChallengesService {
       challenge.rules.maxParticipants &&
       challenge.participantCount >= challenge.rules.maxParticipants
     ) {
-      throw new BadRequestException('Challenge has reached maximum participants');
+      throw new BadRequestException(
+        'Challenge has reached maximum participants',
+      );
     }
 
     // Create user challenge
@@ -240,7 +242,7 @@ export class RewardsChallengesService {
 
     return {
       ...saved,
-      challenge: challenge as any,
+      challenge: challenge,
     };
   }
 
@@ -384,7 +386,9 @@ export class RewardsChallengesService {
       challenge.status = ChallengeStatus.ACTIVE;
       await this.challengeRepository.save(challenge);
 
-      this.logger.log(`Challenge activated: ${challenge.id} (${challenge.name})`);
+      this.logger.log(
+        `Challenge activated: ${challenge.id} (${challenge.name})`,
+      );
     }
   }
 
@@ -417,7 +421,9 @@ export class RewardsChallengesService {
         },
       );
 
-      this.logger.log(`Challenge completed: ${challenge.id} (${challenge.name})`);
+      this.logger.log(
+        `Challenge completed: ${challenge.id} (${challenge.name})`,
+      );
     }
   }
 

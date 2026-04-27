@@ -62,7 +62,7 @@ describe('RpcThrottleGuard', () => {
         getRequest: jest.fn().mockReturnValue(mockRequest),
         getResponse: jest.fn().mockReturnValue(mockResponse),
       }),
-    } as any;
+    };
   });
 
   describe('getTracker', () => {

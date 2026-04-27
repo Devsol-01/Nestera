@@ -31,4 +31,3 @@ import { RewardsChallengesService } from './services/rewards-challenges.service'
   exports: [ChallengesService, RewardsChallengesService],
 })
 export class ChallengesModule {}
-

@@ -43,14 +43,22 @@ describe('AutoDepositService', () => {
 
   describe('create', () => {
     it('creates a schedule with correct nextRunAt', async () => {
-      const dto = { productId: 'prod-1', amount: 50, frequency: AutoDepositFrequency.MONTHLY };
+      const dto = {
+        productId: 'prod-1',
+        amount: 50,
+        frequency: AutoDepositFrequency.MONTHLY,
+      };
       const saved = { id: 'sched-1', ...dto, status: AutoDepositStatus.ACTIVE };
       repo.save.mockResolvedValue(saved);
 
       const result = await service.create('user-1', dto);
 
       expect(repo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 'user-1', productId: 'prod-1', amount: 50 }),
+        expect.objectContaining({
+          userId: 'user-1',
+          productId: 'prod-1',
+          amount: 50,
+        }),
       );
       expect(result).toEqual(saved);
     });
@@ -58,9 +66,16 @@ describe('AutoDepositService', () => {
 
   describe('pause', () => {
     it('pauses an active schedule', async () => {
-      const schedule = { id: 's1', userId: 'u1', status: AutoDepositStatus.ACTIVE };
+      const schedule = {
+        id: 's1',
+        userId: 'u1',
+        status: AutoDepositStatus.ACTIVE,
+      };
       repo.findOne.mockResolvedValue(schedule);
-      repo.save.mockResolvedValue({ ...schedule, status: AutoDepositStatus.PAUSED });
+      repo.save.mockResolvedValue({
+        ...schedule,
+        status: AutoDepositStatus.PAUSED,
+      });
 
       const result = await service.pause('s1', 'u1');
       expect(result.status).toBe(AutoDepositStatus.PAUSED);
@@ -68,23 +83,40 @@ describe('AutoDepositService', () => {
 
     it('throws when schedule not found', async () => {
       repo.findOne.mockResolvedValue(null);
-      await expect(service.pause('bad-id', 'u1')).rejects.toThrow(NotFoundException);
+      await expect(service.pause('bad-id', 'u1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws when trying to pause a cancelled schedule', async () => {
-      repo.findOne.mockResolvedValue({ id: 's1', userId: 'u1', status: AutoDepositStatus.CANCELLED });
-      await expect(service.pause('s1', 'u1')).rejects.toThrow(BadRequestException);
+      repo.findOne.mockResolvedValue({
+        id: 's1',
+        userId: 'u1',
+        status: AutoDepositStatus.CANCELLED,
+      });
+      await expect(service.pause('s1', 'u1')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 
   describe('cancel', () => {
     it('cancels a schedule', async () => {
-      const schedule = { id: 's1', userId: 'u1', status: AutoDepositStatus.ACTIVE };
+      const schedule = {
+        id: 's1',
+        userId: 'u1',
+        status: AutoDepositStatus.ACTIVE,
+      };
       repo.findOne.mockResolvedValue(schedule);
-      repo.save.mockResolvedValue({ ...schedule, status: AutoDepositStatus.CANCELLED });
+      repo.save.mockResolvedValue({
+        ...schedule,
+        status: AutoDepositStatus.CANCELLED,
+      });
 
       await service.cancel('s1', 'u1');
-      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ status: AutoDepositStatus.CANCELLED }));
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: AutoDepositStatus.CANCELLED }),
+      );
     });
   });
 

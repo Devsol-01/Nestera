@@ -98,7 +98,7 @@ describe('AuthRateLimitService', () => {
     it('should ban IP after 10 failed attempts', async () => {
       // Setup: 9 previous attempts, this will be the 10th
       const existingIpAttempts = Array(9).fill('user@example.com');
-      
+
       mockCacheManager.get
         .mockResolvedValueOnce([]) // Failed attempts for identifier
         .mockResolvedValueOnce(existingIpAttempts) // IP attempts (9 existing)
@@ -115,7 +115,7 @@ describe('AuthRateLimitService', () => {
         'auth.failed-attempt',
         expect.any(Object),
       );
-      
+
       expect(mockEventEmitter.emit).toHaveBeenCalledWith(
         'auth.ip-banned',
         expect.objectContaining({

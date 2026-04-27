@@ -140,11 +140,7 @@ export class AuthService {
 
     // Increment rate limit counter
     const newCount = (requestCount || 0) + 1;
-    await this.cacheManager.set(
-      rateLimitKey,
-      newCount,
-      this.RATE_LIMIT_WINDOW,
-    );
+    await this.cacheManager.set(rateLimitKey, newCount, this.RATE_LIMIT_WINDOW);
 
     // Generate nonce with timestamp for additional validation
     const nonce = randomUUID();

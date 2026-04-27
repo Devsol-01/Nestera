@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Get,
-  Patch,
-  Query,
-  Body,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Patch, Query, Body, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -30,7 +23,8 @@ export class RewardsController {
   @ApiOperation({ summary: 'Top users ranked by total accumulated points' })
   @ApiResponse({
     status: 200,
-    description: 'Points leaderboard. Authenticated users also receive their own rank.',
+    description:
+      'Points leaderboard. Authenticated users also receive their own rank.',
   })
   getPointsLeaderboard(
     @Query() query: LeaderboardQueryDto,
@@ -45,7 +39,8 @@ export class RewardsController {
   @ApiOperation({ summary: 'Top users ranked by longest streak' })
   @ApiResponse({
     status: 200,
-    description: 'Streaks leaderboard. Authenticated users also receive their own rank.',
+    description:
+      'Streaks leaderboard. Authenticated users also receive their own rank.',
   })
   getStreaksLeaderboard(
     @Query() query: LeaderboardQueryDto,
@@ -60,7 +55,8 @@ export class RewardsController {
   @ApiOperation({ summary: 'Top users ranked by total saved amount' })
   @ApiResponse({
     status: 200,
-    description: 'Savings leaderboard. Authenticated users also receive their own rank.',
+    description:
+      'Savings leaderboard. Authenticated users also receive their own rank.',
   })
   getSavingsLeaderboard(
     @Query() query: LeaderboardQueryDto,
@@ -78,6 +74,9 @@ export class RewardsController {
     @CurrentUser() user: { id: string },
     @Body() dto: UpdateVisibilityDto,
   ) {
-    return this.rewardsService.updateVisibility(user.id, dto.isLeaderboardVisible);
+    return this.rewardsService.updateVisibility(
+      user.id,
+      dto.isLeaderboardVisible,
+    );
   }
 }

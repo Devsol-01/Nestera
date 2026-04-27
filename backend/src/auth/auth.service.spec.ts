@@ -5,10 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import {
-  BadRequestException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { AuthRateLimitService } from './services/auth-rate-limit.service';
 

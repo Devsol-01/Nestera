@@ -22,6 +22,7 @@ import { YieldHandler } from './event-handlers/yield.handler';
 import { IndexerService } from './indexer.service';
 import { BalanceSyncService } from './balance-sync.service';
 import { ProtocolMetrics } from '../admin-analytics/entities/protocol-metrics.entity';
+import { RetryService } from './services/retry.service';
 
 @Global()
 @Module({
@@ -54,6 +55,7 @@ import { ProtocolMetrics } from '../admin-analytics/entities/protocol-metrics.en
     WithdrawHandler,
     YieldHandler,
     BalanceSyncService,
+    RetryService,
   ],
   exports: [
     StellarService,
@@ -65,6 +67,7 @@ import { ProtocolMetrics } from '../admin-analytics/entities/protocol-metrics.en
     WithdrawHandler,
     YieldHandler,
     BalanceSyncService,
+    RetryService,
   ],
 })
 export class BlockchainModule {}

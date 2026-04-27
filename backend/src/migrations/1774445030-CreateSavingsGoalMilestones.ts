@@ -23,7 +23,12 @@ export class CreateSavingsGoalMilestones1774445030 implements MigrationInterface
             default: "'AUTOMATIC'",
             isNullable: false,
           },
-          { name: 'achieved', type: 'boolean', default: false, isNullable: false },
+          {
+            name: 'achieved',
+            type: 'boolean',
+            default: false,
+            isNullable: false,
+          },
           { name: 'achievedAt', type: 'timestamp', isNullable: true },
           { name: 'bonusPoints', type: 'int', default: 0, isNullable: false },
           {

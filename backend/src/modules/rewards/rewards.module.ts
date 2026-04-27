@@ -6,9 +6,7 @@ import { RewardsController } from './rewards.controller';
 import { RewardsService } from './rewards.service';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([UserRewardProfile, UserSubscription]),
-  ],
+  imports: [TypeOrmModule.forFeature([UserRewardProfile, UserSubscription])],
   controllers: [RewardsController],
   providers: [RewardsService],
   exports: [RewardsService],

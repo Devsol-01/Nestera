@@ -79,8 +79,10 @@ export class AuthSecurityAdminController {
   })
   @ApiResponse({ status: 200, description: 'Account status retrieved' })
   async getAccountStatus(@Param('identifier') identifier: string) {
-    const isLocked = await this.authRateLimitService.isAccountLocked(identifier);
-    const lockInfo = await this.authRateLimitService.getAccountLockInfo(identifier);
+    const isLocked =
+      await this.authRateLimitService.isAccountLocked(identifier);
+    const lockInfo =
+      await this.authRateLimitService.getAccountLockInfo(identifier);
     const failedAttempts =
       await this.authRateLimitService.getFailedAttemptCount(identifier);
 

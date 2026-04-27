@@ -10,10 +10,13 @@ import { Repository } from 'typeorm';
 import { Horizon, rpc } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar.service';
 import { ProcessedStellarEvent } from './entities/processed-event.entity';
+import { DeadLetterEvent } from './entities/dead-letter-event.entity';
+import { IndexerState } from './entities/indexer-state.entity';
 import {
   MedicalClaim,
   ClaimStatus,
 } from '../claims/entities/medical-claim.entity';
+import { RetryService } from './services/retry.service';
 
 interface ContractEvent {
   id: string;
@@ -36,14 +39,21 @@ export class StellarEventListenerService
   private isRunning = false;
   private pollingInterval: NodeJS.Timeout | null = null;
   private lastProcessedCursor: string | null = null;
+  private lastProcessedLedger: number = 0;
   private readonly pollIntervalMs: number;
   private readonly contractId: string;
+  private indexerState: IndexerState | null = null;
 
   constructor(
     private readonly stellarService: StellarService,
     private readonly configService: ConfigService,
+    private readonly retryService: RetryService,
     @InjectRepository(ProcessedStellarEvent)
     private readonly processedEventRepository: Repository<ProcessedStellarEvent>,
+    @InjectRepository(DeadLetterEvent)
+    private readonly deadLetterEventRepository: Repository<DeadLetterEvent>,
+    @InjectRepository(IndexerState)
+    private readonly indexerStateRepository: Repository<IndexerState>,
     @InjectRepository(MedicalClaim)
     private readonly claimRepository: Repository<MedicalClaim>,
   ) {
@@ -74,6 +84,25 @@ export class StellarEventListenerService
 
   private async loadLastCursor(): Promise<void> {
     try {
+      // Load IndexerState for ledger tracking
+      this.indexerState = await this.indexerStateRepository.findOne({
+        where: {},
+      });
+      if (!this.indexerState) {
+        this.indexerState = this.indexerStateRepository.create({
+          lastProcessedLedger: 0,
+          lastProcessedTimestamp: null,
+          totalEventsProcessed: 0,
+          totalEventsFailed: 0,
+        });
+        this.indexerState = await this.indexerStateRepository.save(
+          this.indexerState,
+        );
+      }
+
+      this.lastProcessedLedger = this.indexerState.lastProcessedLedger;
+
+      // Load last processed event cursor
       const lastEvent = await this.processedEventRepository.findOne({
         where: { contractId: this.contractId },
         order: { processedAt: 'DESC' },
@@ -81,7 +110,9 @@ export class StellarEventListenerService
 
       if (lastEvent) {
         this.lastProcessedCursor = lastEvent.eventId;
-        this.logger.log(`Resuming from cursor: ${this.lastProcessedCursor}`);
+        this.logger.log(
+          `Resuming from cursor: ${this.lastProcessedCursor} (ledger: ${lastEvent.ledger})`,
+        );
       } else {
         this.logger.log(
           'No previous cursor found. Starting from latest events.',
@@ -123,6 +154,9 @@ export class StellarEventListenerService
     if (!this.isRunning) return;
 
     try {
+      // First, attempt to process any failed events from DLQ
+      await this.processRetryableEvents();
+
       const rpcServer = this.stellarService.getRpcServer();
 
       // Build request to get contract events
@@ -146,20 +180,38 @@ export class StellarEventListenerService
       if (response.events && response.events.length > 0) {
         this.logger.log(`Fetched ${response.events.length} new events`);
 
+        let processedInBatch = 0;
+        let failedInBatch = 0;
+
         for (const event of response.events) {
-          await this.processEvent(event);
+          const success = await this.processEvent(event);
+          if (success) {
+            processedInBatch++;
+          } else {
+            failedInBatch++;
+          }
         }
 
         // Update cursor to the last event's ID
         const lastEvent = response.events[response.events.length - 1];
         this.lastProcessedCursor = lastEvent.id;
+
+        // Update indexer state with last processed ledger
+        if (this.indexerState) {
+          this.indexerState.lastProcessedLedger = lastEvent.ledger;
+          this.indexerState.lastProcessedTimestamp = Date.now();
+          this.indexerState.totalEventsProcessed += processedInBatch;
+          this.indexerState.totalEventsFailed += failedInBatch;
+          this.indexerState.updatedAt = new Date();
+          await this.saveIndexerState();
+        }
       }
     } catch (error) {
       this.logger.error('Error polling events', error);
     }
   }
 
-  private async processEvent(event: rpc.Api.EventResponse): Promise<void> {
+  private async processEvent(event: rpc.Api.EventResponse): Promise<boolean> {
     const eventId = event.id;
 
     try {
@@ -170,7 +222,7 @@ export class StellarEventListenerService
 
       if (existing) {
         this.logger.debug(`Event ${eventId} already processed, skipping`);
-        return;
+        return true;
       }
 
       // Parse event topics and value
@@ -189,9 +241,14 @@ export class StellarEventListenerService
 
       // Record that we processed this event
       await this.recordProcessedEvent(event, eventType);
+      return true;
     } catch (error) {
       this.logger.error(`Failed to process event ${eventId}`, error);
-      // Don't throw - continue processing other events
+
+      // Save failed event to DLQ
+      await this.saveToDLQ(event, error);
+
+      return false;
     }
   }
 
@@ -353,6 +410,128 @@ export class StellarEventListenerService
     await this.processedEventRepository.save(processedEvent);
   }
 
+  /**
+   * Process events from the Dead Letter Queue that are ready for retry
+   */
+  private async processRetryableEvents(): Promise<number> {
+    const retryableEvents = await this.retryService.getRetryableEvents();
+    let retried = 0;
+
+    for (const dlqEvent of retryableEvents) {
+      try {
+        const event = JSON.parse(dlqEvent.rawEvent) as rpc.Api.EventResponse;
+
+        this.logger.log(
+          `Retrying event from DLQ (${dlqEvent.id}, ledger ${dlqEvent.ledgerSequence}, attempt ${dlqEvent.retryCount + 1})`,
+        );
+
+        const success = await this.processEvent(event);
+
+        if (success) {
+          await this.retryService.markSuccessful(dlqEvent.id);
+          this.logger.log(`Successfully reprocessed DLQ event ${dlqEvent.id}`);
+          retried++;
+        } else {
+          // Schedule next retry
+          await this.retryService.scheduleRetry(dlqEvent);
+        }
+      } catch (error) {
+        this.logger.error(
+          `Error during DLQ retry for event ${dlqEvent.id}`,
+          error,
+        );
+        await this.retryService.scheduleRetry(dlqEvent);
+      }
+    }
+
+    return retried;
+  }
+
+  private async saveIndexerState(): Promise<void> {
+    if (this.indexerState) {
+      await this.indexerStateRepository.save(this.indexerState);
+    }
+  }
+
+  /**
+   * Save failed event to Dead Letter Queue
+   */
+  private async saveToDLQ(
+    event: rpc.Api.EventResponse,
+    error: unknown,
+  ): Promise<void> {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    // Check if event already exists in DLQ
+    const existing = await this.deadLetterEventRepository.findOne({
+      where: { ledgerSequence: event.ledger },
+    });
+
+    if (existing) {
+      this.logger.debug(
+        `DLQ entry already exists for ledger ${event.ledger}, updating retry info`,
+      );
+      await this.retryService.scheduleRetry(existing);
+      return;
+    }
+
+    // Create new DLQ entry
+    const dlqEntry = this.deadLetterEventRepository.create({
+      ledgerSequence: event.ledger,
+      rawEvent: JSON.stringify(event),
+      errorMessage,
+      retryCount: 0,
+      nextRetryAt: null,
+    });
+
+    await this.deadLetterEventRepository.save(dlqEntry);
+    this.logger.error(
+      `Event ${event.id} (ledger ${event.ledger}) failed and saved to DLQ: ${errorMessage}`,
+    );
+  }
+
+  /**
+   * Manually trigger retry processing for all failed events in DLQ
+   */
+  async triggerDLQRetry(): Promise<{
+    processed: number;
+    failed: number;
+    remaining: number;
+  }> {
+    this.logger.log('Manual DLQ retry triggered');
+
+    const retryable = await this.retryService.getRetryableEvents();
+    let processed = 0;
+    let failed = 0;
+
+    for (const dlqEvent of retryable) {
+      try {
+        const event = JSON.parse(dlqEvent.rawEvent) as rpc.Api.EventResponse;
+        const success = await this.processEvent(event);
+
+        if (success) {
+          await this.retryService.markSuccessful(dlqEvent.id);
+          processed++;
+        } else {
+          await this.retryService.scheduleRetry(dlqEvent);
+          failed++;
+        }
+      } catch (error) {
+        this.logger.error(
+          `Error during manual retry for ${dlqEvent.id}`,
+          error,
+        );
+        await this.retryService.scheduleRetry(dlqEvent);
+        failed++;
+      }
+    }
+
+    const remaining =
+      (await this.deadLetterEventRepository.count()) - processed;
+
+    return { processed, failed, remaining };
+  }
+
   // Manual trigger for testing/admin purposes
   async triggerManualSync(): Promise<{ processed: number; errors: number }> {
     this.logger.log('Manual sync triggered');
@@ -371,17 +550,199 @@ export class StellarEventListenerService
     return { processed, errors };
   }
 
+  /**
+   * Replay events starting from a specific ledger number
+   */
+  async replayFromLedger(
+    fromLedger: number,
+    toLedger?: number,
+  ): Promise<{ replayed: number; skipped: number }> {
+    this.logger.log(
+      `Replaying events from ledger ${fromLedger}${toLedger ? ` to ${toLedger}` : ''}`,
+    );
+
+    let replayed = 0;
+    let skipped = 0;
+
+    try {
+      const rpcServer = this.stellarService.getRpcServer();
+
+      // Fetch events from the specified ledger range
+      const request: any = {
+        filters: [
+          {
+            type: 'contract',
+            contractIds: [this.contractId],
+          },
+        ],
+        limit: 100,
+      };
+
+      // Use cursor starting from the fromLedger
+      // Since we can't directly filter by ledger in the RPC call,
+      // we need to start from the cursor that corresponds to fromLedger
+      // For simplicity, we'll fetch events and filter by ledger
+
+      // Start from beginning if we need to go back
+      const cursor = this.lastProcessedCursor;
+      if (!cursor) {
+        this.logger.warn(
+          'No cursor available for replay, starting from latest',
+        );
+        return { replayed: 0, skipped: 0 };
+      }
+
+      // Get events from cursor - will need to loop through until we hit fromLedger
+      // This is a simplified implementation - in production you'd want pagination
+      const response = await rpcServer.getEvents({
+        ...request,
+        cursor,
+      });
+
+      if (!response.events || response.events.length === 0) {
+        return { replayed: 0, skipped: 0 };
+      }
+
+      // Find the starting index for fromLedger
+      let startIdx = response.events.findIndex((e) => e.ledger >= fromLedger);
+
+      if (startIdx === -1) startIdx = 0;
+
+      const eventsToProcess = toLedger
+        ? response.events.filter(
+            (e) => e.ledger >= fromLedger && e.ledger <= toLedger,
+          )
+        : response.events.slice(startIdx);
+
+      for (const event of eventsToProcess) {
+        // Check if already processed
+        const existing = await this.processedEventRepository.findOne({
+          where: { eventId: event.id },
+        });
+
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        const success = await this.processEvent(event);
+        if (success) {
+          replayed++;
+        } else {
+          skipped++;
+        }
+      }
+
+      this.logger.log(
+        `Replay complete: ${replayed} replayed, ${skipped} skipped`,
+      );
+    } catch (error) {
+      this.logger.error('Error during replay', error);
+      throw error;
+    }
+
+    return { replayed, skipped };
+  }
+
+  /**
+   * Get DLQ statistics
+   */
+  async getDLQStats(): Promise<{
+    total: number;
+    retryable: number;
+    maxRetriesReached: number;
+    avgRetryCount: number;
+    recent: Array<{
+      id: string;
+      ledgerSequence: number;
+      errorMessage: string;
+      retryCount: number;
+      nextRetryAt: Date | null;
+      createdAt: Date;
+    }>;
+  }> {
+    const stats = await this.retryService.getRetryStats();
+    const recent = await this.deadLetterEventRepository.find({
+      order: { createdAt: 'DESC' },
+      take: 10,
+    });
+
+    return {
+      ...stats,
+      recent,
+    };
+  }
+
+  /**
+   * Find a specific DLQ entry by ID
+   */
+  async findDLQEntry(id: string): Promise<any> {
+    return this.deadLetterEventRepository.findOne({
+      where: { id },
+    });
+  }
+
+  /**
+   * Delete a DLQ entry
+   */
+  async deleteDLQEntry(id: string): Promise<boolean> {
+    const result = await this.deadLetterEventRepository.delete(id);
+    return (result.affected ?? 0) > 0;
+  }
+
+  /**
+   * Get comprehensive metrics
+   */
+  async getMetrics(): Promise<{
+    eventListener: {
+      isRunning: boolean;
+      contractId: string;
+      totalProcessed: number;
+      totalFailed: number;
+      lastLedger: number;
+    };
+    dlq: {
+      total: number;
+      retryable: number;
+      avgRetryCount: number;
+    };
+  }> {
+    const status = this.getStatus();
+    const dlqStats = await this.retryService.getRetryStats();
+
+    return {
+      eventListener: {
+        isRunning: status.isRunning,
+        contractId: status.contractId,
+        totalProcessed: status.totalProcessed,
+        totalFailed: status.totalFailed,
+        lastLedger: status.lastLedger,
+      },
+      dlq: {
+        total: dlqStats.total,
+        retryable: dlqStats.retryable,
+        avgRetryCount: dlqStats.avgRetryCount,
+      },
+    };
+  }
+
   getStatus(): {
     isRunning: boolean;
     contractId: string;
     lastCursor: string | null;
+    lastLedger: number;
     pollInterval: number;
+    totalProcessed: number;
+    totalFailed: number;
   } {
     return {
       isRunning: this.isRunning,
       contractId: this.contractId,
       lastCursor: this.lastProcessedCursor,
+      lastLedger: this.lastProcessedLedger,
       pollInterval: this.pollIntervalMs,
+      totalProcessed: this.indexerState?.totalEventsProcessed ?? 0,
+      totalFailed: this.indexerState?.totalEventsFailed ?? 0,
     };
   }
 }

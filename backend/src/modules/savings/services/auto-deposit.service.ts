@@ -27,7 +27,10 @@ export class AutoDepositService {
     private readonly savingsService: SavingsService,
   ) {}
 
-  async create(userId: string, dto: CreateAutoDepositDto): Promise<AutoDepositSchedule> {
+  async create(
+    userId: string,
+    dto: CreateAutoDepositDto,
+  ): Promise<AutoDepositSchedule> {
     const nextRunAt = this.computeNextRun(dto.frequency);
     const schedule = this.scheduleRepo.create({
       userId,
@@ -108,7 +111,10 @@ export class AutoDepositService {
     }
   }
 
-  private async findOwned(id: string, userId: string): Promise<AutoDepositSchedule> {
+  private async findOwned(
+    id: string,
+    userId: string,
+  ): Promise<AutoDepositSchedule> {
     const schedule = await this.scheduleRepo.findOne({ where: { id, userId } });
     if (!schedule) {
       throw new NotFoundException(`Auto-deposit schedule ${id} not found`);

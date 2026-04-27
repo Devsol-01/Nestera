@@ -56,7 +56,17 @@ export class RewardsChallengesController {
     description: 'List of active challenges',
     type: [ChallengeResponseDto],
   })
-  @ApiQuery({ name: 'type', required: false, enum: ['deposit_streak', 'goal_creation', 'referral', 'savings_target', 'transaction_count'] })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: [
+      'deposit_streak',
+      'goal_creation',
+      'referral',
+      'savings_target',
+      'transaction_count',
+    ],
+  })
   @ApiQuery({ name: 'category', required: false, type: String })
   @ApiQuery({ name: 'featured', required: false, type: Boolean })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
@@ -65,10 +75,7 @@ export class RewardsChallengesController {
     @Query() query: GetActiveChallengesQueryDto,
     @CurrentUser() user?: { id: string },
   ) {
-    return this.rewardsChallengesService.getActiveChallenges(
-      query,
-      user?.id,
-    );
+    return this.rewardsChallengesService.getActiveChallenges(query, user?.id);
   }
 
   /**
@@ -113,7 +120,10 @@ export class RewardsChallengesController {
     description: 'Successfully joined challenge',
     type: UserChallengeResponseDto,
   })
-  @ApiResponse({ status: 400, description: 'Bad request (challenge not active, already joined, etc.)' })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request (challenge not active, already joined, etc.)',
+  })
   @ApiResponse({ status: 404, description: 'Challenge not found' })
   @ApiResponse({ status: 409, description: 'Already joined this challenge' })
   async joinChallenge(
@@ -156,7 +166,8 @@ export class RewardsChallengesController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get all my challenges',
-    description: 'Retrieve all challenges the authenticated user has participated in',
+    description:
+      'Retrieve all challenges the authenticated user has participated in',
   })
   @ApiResponse({
     status: 200,
