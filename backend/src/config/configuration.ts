@@ -3,12 +3,26 @@ export default () => ({
   database: {
     // URL-based connection (takes precedence when provided)
     url: process.env.DATABASE_URL,
+    // Optional read-replica URL; enables TypeORM replication (separate pool to replica)
+    readUrl: process.env.DATABASE_READ_URL,
     // Host-based connection (used when DATABASE_URL is absent)
     host: process.env.DB_HOST,
     port: parseInt(process.env.DB_PORT || '5432', 10),
     name: process.env.DB_NAME,
     user: process.env.DB_USER,
     pass: process.env.DB_PASS,
+    pool: {
+      max: parseInt(process.env.DB_POOL_MAX || '20', 10),
+      min: parseInt(process.env.DB_POOL_MIN || '2', 10),
+      connectionTimeoutMs: parseInt(
+        process.env.DB_POOL_CONNECTION_TIMEOUT_MS || '10000',
+        10,
+      ),
+      idleTimeoutMs: parseInt(
+        process.env.DB_POOL_IDLE_TIMEOUT_MS || '30000',
+        10,
+      ),
+    },
   },
   jwt: {
     secret: process.env.JWT_SECRET,

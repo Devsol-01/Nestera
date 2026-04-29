@@ -10,6 +10,7 @@ import * as Joi from 'joi';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import configuration from './config/configuration';
+import { createTypeOrmModuleOptions } from './config/typeorm-options.factory';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
@@ -41,6 +42,11 @@ const envValidationSchema = Joi.object({
   DB_USER: Joi.string().optional(),
   DB_PASS: Joi.string().optional(),
   DATABASE_URL: Joi.string().uri().optional(),
+  DATABASE_READ_URL: Joi.string().uri().optional(),
+  DB_POOL_MAX: Joi.number().integer().min(1).max(500).optional(),
+  DB_POOL_MIN: Joi.number().integer().min(0).max(200).optional(),
+  DB_POOL_CONNECTION_TIMEOUT_MS: Joi.number().integer().min(0).optional(),
+  DB_POOL_IDLE_TIMEOUT_MS: Joi.number().integer().min(0).optional(),
 
   JWT_SECRET: Joi.string().min(10).required(),
   JWT_EXPIRATION: Joi.string().required(),
@@ -114,38 +120,8 @@ const envValidationSchema = Joi.object({
     EventEmitterModule.forRoot(),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        const dbUrl = configService.get<string>('database.url');
-        const dbHost = configService.get<string>('database.host');
-
-        if (dbUrl) {
-          // URL-based connection (e.g. DATABASE_URL on cloud platforms)
-          return {
-            type: 'postgres' as const,
-            url: dbUrl,
-            autoLoadEntities: true,
-            synchronize: configService.get<string>('NODE_ENV') !== 'production',
-          };
-        }
-
-        // Host-based connection (uses DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS)
-        if (!dbHost) {
-          throw new Error(
-            'Database configuration error: set either DATABASE_URL or DB_HOST in your environment.',
-          );
-        }
-
-        return {
-          type: 'postgres' as const,
-          host: dbHost,
-          port: configService.get<number>('database.port') ?? 5432,
-          database: configService.get<string>('database.name'),
-          username: configService.get<string>('database.user'),
-          password: configService.get<string>('database.pass'),
-          autoLoadEntities: true,
-          synchronize: configService.get<string>('NODE_ENV') !== 'production',
-        };
-      },
+      useFactory: (configService: ConfigService) =>
+        createTypeOrmModuleOptions(configService),
     }),
     AuthModule,
     RedisCacheModule,
