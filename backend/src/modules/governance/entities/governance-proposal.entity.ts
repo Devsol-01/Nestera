@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { Vote } from './vote.entity';
 
@@ -23,6 +24,8 @@ export enum ProposalCategory {
 }
 
 @Entity('governance_proposals')
+@Index('idx_governance_proposals_status', ['status'])
+@Index('idx_governance_proposals_status_on_chain_id', ['status', 'onChainId'])
 export class GovernanceProposal {
   @PrimaryGeneratedColumn('uuid')
   id: string;

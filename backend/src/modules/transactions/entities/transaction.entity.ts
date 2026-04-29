@@ -26,6 +26,9 @@ export enum TxStatus {
 
 @Entity('transactions')
 @Unique(['txHash'])
+@Index('idx_transactions_user_id_status', ['userId', 'status'])
+@Index('idx_transactions_user_id_tx_hash', ['userId', 'txHash'])
+@Index('idx_transactions_status', ['status'])
 export class Transaction extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

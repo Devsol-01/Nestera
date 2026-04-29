@@ -15,7 +15,8 @@ export enum VoteDirection {
 }
 
 @Entity('votes')
-@Index(['walletAddress', 'proposal'], { unique: true })
+@Index(['walletAddress', 'proposalId'], { unique: true })
+@Index('idx_votes_proposal_id_wallet_address', ['proposalId', 'walletAddress'])
 export class Vote {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
@@ -62,6 +63,7 @@ export interface SavingsGoalMetadata {
  *    queries fast — callers opt-in via QueryBuilder or `relations` option.
  */
 @Entity('savings_goals')
+@Index('idx_savings_goals_user_id_status', ['userId', 'status'])
 export class SavingsGoal {
   // ── Primary key ─────────────────────────────────────────────────────────────
 
