@@ -1,0 +1,197 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  line-height: 1.4;
+}
+
+.required {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #1f2937;
+  background: #ffffff;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+  outline: none;
+}
+
+.input::placeholder {
+  color: #9ca3af;
+}
+
+/* Focus state - visible focus ring */
+.input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  background: #ffffff;
+}
+
+/* Error state */
+.inputError {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.inputError:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+/* Icon padding */
+.inputWithLeftIcon {
+  padding-left: 42px;
+}
+
+.inputWithRightIcon {
+  padding-right: 42px;
+}
+
+/* Icons */
+.leftIcon,
+.rightIcon,
+.spinner {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: #6b7280;
+  pointer-events: none;
+}
+
+.leftIcon {
+  left: 14px;
+}
+
+.rightIcon,
+.spinner {
+  right: 14px;
+}
+
+.spinner {
+  color: #6366f1;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Helper text */
+.helper {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* Error message */
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #dc2626;
+  line-height: 1.4;
+  animation: slideIn 150ms ease-out;
+}
+
+.errorIcon {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  margin-top: 1px;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .input {
+    border-width: 3px;
+  }
+
+  .input:focus {
+    outline: 3px solid #000000;
+    outline-offset: 2px;
+  }
+
+  .inputError {
+    border-width: 3px;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .input,
+  .error {
+    transition: none;
+    animation: none;
+  }
+
+  .spinner {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .label {
+    color: #e5e7eb;
+  }
+
+  .input {
+    color: #f3f4f6;
+    background: #1f2937;
+    border-color: #4b5563;
+  }
+
+  .input::placeholder {
+    color: #9ca3af;
+  }
+
+  .input:focus {
+    background: #1f2937;
+  }
+
+  .inputError {
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  .helper {
+    color: #9ca3af;
+  }
+}
