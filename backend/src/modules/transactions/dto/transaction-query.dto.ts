@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import { PageOptionsDto } from '../../../common/dto/page-options.dto';
 import { LedgerTransactionType } from '../../blockchain/entities/transaction.entity';
+import { CurrencyCode } from '../../currency/currency.types';
 
 export class TransactionQueryDto extends PageOptionsDto {
   @ApiPropertyOptional({
@@ -78,4 +79,13 @@ export class TransactionQueryDto extends PageOptionsDto {
   @IsArray()
   @IsString({ each: true })
   readonly tags?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Filter by currency code',
+    example: 'USDC',
+    enum: CurrencyCode,
+  })
+  @IsOptional()
+  @IsEnum(CurrencyCode)
+  readonly currencyCode?: CurrencyCode;
 }

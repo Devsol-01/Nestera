@@ -13,6 +13,7 @@ import {
   UserSubscription,
 } from '../../savings/entities/user-subscription.entity';
 import { User } from '../../user/entities/user.entity';
+import { CurrencyService } from '../../currency/currency.service';
 
 interface IndexerEvent {
   id?: string;
@@ -26,6 +27,10 @@ interface IndexerEvent {
 interface WithdrawPayload {
   publicKey: string;
   amount: string;
+  currencyCode: string;
+  assetCode: string | null;
+  assetIssuer: string | null;
+  assetContractId: string | null;
 }
 
 @Injectable()
@@ -35,7 +40,10 @@ export class WithdrawHandler {
     .update('Withdraw')
     .digest('hex');
 
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly currencyService: CurrencyService,
+  ) {}
 
   async handle(event: IndexerEvent): Promise<boolean> {
     if (!this.isWithdrawTopic(event.topic)) {
@@ -43,6 +51,11 @@ export class WithdrawHandler {
     }
 
     const payload = this.extractPayload(event.value);
+    const currency = this.currencyService.resolveCurrencyFromAsset(payload);
+    const normalizedAmount = this.currencyService.normalizeAmount(
+      payload.amount,
+      currency.code,
+    );
     const eventId = this.resolveEventId(event);
 
     await this.dataSource.transaction(async (manager) => {
@@ -76,6 +89,13 @@ export class WithdrawHandler {
           userId: user.id,
           type: LedgerTransactionType.WITHDRAW,
           amount: payload.amount,
+          currencyCode: currency.code,
+          assetCode: payload.assetCode ?? currency.stellarAssetCode,
+          assetIssuer: payload.assetIssuer ?? currency.issuer ?? null,
+          assetContractId:
+            payload.assetContractId ?? currency.contractId ?? null,
+          amountBaseCurrency: normalizedAmount.amountBaseCurrency,
+          conversionRateToBase: normalizedAmount.conversionRateToBase,
           publicKey: payload.publicKey,
           eventId,
           status: LedgerTransactionStatus.COMPLETED,
@@ -86,6 +106,7 @@ export class WithdrawHandler {
           metadata: {
             topic: event.topic,
             rawValueType: typeof event.value,
+            currencyCode: currency.code,
           },
         }),
       );
@@ -177,7 +198,22 @@ export class WithdrawHandler {
       );
     }
 
-    return { publicKey, amount };
+    return { publicKey, amount, ...this.extractCurrencyFields(asRecord) };
+  }
+
+  private extractCurrencyFields(record: Record<string, unknown>) {
+    return {
+      currencyCode:
+        this.pickString(record, ['currencyCode', 'currency', 'asset']) ??
+        'USDC',
+      assetCode: this.pickString(record, ['assetCode', 'code']),
+      assetIssuer: this.pickString(record, ['assetIssuer', 'issuer']),
+      assetContractId: this.pickString(record, [
+        'assetContractId',
+        'contractId',
+        'assetId',
+      ]),
+    };
   }
 
   private resolveEventId(event: IndexerEvent): string {

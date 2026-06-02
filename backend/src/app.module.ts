@@ -37,6 +37,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { ReferralsModule } from './modules/referrals/referrals.module';
+import { CurrencyModule } from './modules/currency/currency.module';
 import { TestRbacModule } from './test-rbac/test-rbac.module';
 import { TestThrottlingModule } from './test-throttling/test-throttling.module';
 import { ApiVersioningModule } from './common/versioning/api-versioning.module';
@@ -94,6 +95,10 @@ const envValidationSchema = Joi.object({
   BACKUP_ENCRYPTION_KEY: Joi.string().length(64).optional(), // 32-byte key as hex
   BACKUP_RETENTION_DAYS: Joi.number().integer().min(1).default(30).optional(),
   BACKUP_TMP_DIR: Joi.string().optional(),
+  BASE_CURRENCY: Joi.string()
+    .valid('USDC', 'USDT', 'XLM', 'EURC')
+    .default('USDC'),
+  CURRENCY_CONFIG_JSON: Joi.string().optional(),
 });
 
 @Module({
@@ -200,6 +205,7 @@ const envValidationSchema = Joi.object({
     TransactionsModule,
     ReportsModule,
     ReferralsModule,
+    CurrencyModule,
     TestRbacModule,
     TestThrottlingModule,
     ApiVersioningModule,

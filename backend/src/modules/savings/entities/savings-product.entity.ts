@@ -42,6 +42,9 @@ export class SavingsProduct {
   @Column('decimal', { precision: 14, scale: 2 })
   maxAmount: number;
 
+  @Column({ type: 'varchar', length: 12, default: 'USDC' })
+  currencyCode: string;
+
   @Column('int', { nullable: true })
   tenureMonths: number | null;
 

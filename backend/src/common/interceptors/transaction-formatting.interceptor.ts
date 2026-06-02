@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { CurrencyService } from '../../modules/currency/currency.service';
 
 /**
  * Asset configuration for formatting precision and symbols
@@ -48,6 +49,8 @@ const ASSET_CONFIGS: Record<string, AssetConfig> = {
  */
 @Injectable()
 export class TransactionFormattingInterceptor implements NestInterceptor {
+  constructor(private readonly currencyService: CurrencyService) {}
+
   /**
    * Intercept and enrich transaction responses
    */
@@ -105,7 +108,7 @@ export class TransactionFormattingInterceptor implements NestInterceptor {
     if (formatted.amount !== undefined) {
       formatted.amountFormatted = this.formatAmount(
         formatted.amount,
-        formatted.assetId || formatted.contractId,
+        formatted.currencyCode,
       );
     }
 
@@ -142,6 +145,10 @@ export class TransactionFormattingInterceptor implements NestInterceptor {
    * @returns Formatted amount object with multiple representations
    */
   private formatAmount(amount: string | number, assetId?: string): any {
+    if (assetId && ['USDC', 'USDT', 'XLM', 'EURC'].includes(assetId)) {
+      return this.currencyService.formatAmount(amount, assetId);
+    }
+
     const assetConfig = this.getAssetConfig(assetId);
     const rawAmount = typeof amount === 'string' ? amount : amount.toString();
 

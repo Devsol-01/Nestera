@@ -13,6 +13,7 @@ import {
 } from '../../savings/entities/user-subscription.entity';
 import { User } from '../../user/entities/user.entity';
 import { SavingsProduct } from '../../savings/entities/savings-product.entity';
+import { CurrencyService } from '../../currency/currency.service';
 
 interface IndexerEvent {
   id?: string;
@@ -26,6 +27,10 @@ interface IndexerEvent {
 interface DepositPayload {
   publicKey: string;
   amount: string;
+  currencyCode: string;
+  assetCode: string | null;
+  assetIssuer: string | null;
+  assetContractId: string | null;
 }
 
 @Injectable()
@@ -35,7 +40,10 @@ export class DepositHandler {
     .update('Deposit')
     .digest('hex');
 
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly currencyService: CurrencyService,
+  ) {}
 
   async handle(event: IndexerEvent): Promise<boolean> {
     if (!this.isDepositTopic(event.topic)) {
@@ -43,6 +51,11 @@ export class DepositHandler {
     }
 
     const payload = this.extractPayload(event.value);
+    const currency = this.currencyService.resolveCurrencyFromAsset(payload);
+    const normalizedAmount = this.currencyService.normalizeAmount(
+      payload.amount,
+      currency.code,
+    );
     const eventId = this.resolveEventId(event);
 
     await this.dataSource.transaction(async (manager) => {
@@ -77,6 +90,13 @@ export class DepositHandler {
           userId: user.id,
           type: LedgerTransactionType.DEPOSIT,
           amount: payload.amount,
+          currencyCode: currency.code,
+          assetCode: payload.assetCode ?? currency.stellarAssetCode,
+          assetIssuer: payload.assetIssuer ?? currency.issuer ?? null,
+          assetContractId:
+            payload.assetContractId ?? currency.contractId ?? null,
+          amountBaseCurrency: normalizedAmount.amountBaseCurrency,
+          conversionRateToBase: normalizedAmount.conversionRateToBase,
           publicKey: payload.publicKey,
           eventId,
           transactionHash:
@@ -86,6 +106,7 @@ export class DepositHandler {
           metadata: {
             topic: event.topic,
             rawValueType: typeof event.value,
+            currencyCode: currency.code,
           },
         }),
       );
@@ -120,6 +141,7 @@ export class DepositHandler {
           userId: user.id,
           productId: defaultProduct.id,
           amount: amountAsNumber,
+          currencyCode: currency.code,
           status: SubscriptionStatus.ACTIVE,
           startDate: new Date(),
           endDate: null,
@@ -194,7 +216,22 @@ export class DepositHandler {
       );
     }
 
-    return { publicKey, amount };
+    return { publicKey, amount, ...this.extractCurrencyFields(asRecord) };
+  }
+
+  private extractCurrencyFields(record: Record<string, unknown>) {
+    return {
+      currencyCode:
+        this.pickString(record, ['currencyCode', 'currency', 'asset']) ??
+        'USDC',
+      assetCode: this.pickString(record, ['assetCode', 'code']),
+      assetIssuer: this.pickString(record, ['assetIssuer', 'issuer']),
+      assetContractId: this.pickString(record, [
+        'assetContractId',
+        'contractId',
+        'assetId',
+      ]),
+    };
   }
 
   private resolveEventId(event: IndexerEvent): string {

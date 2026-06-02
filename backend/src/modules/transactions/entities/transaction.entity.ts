@@ -44,6 +44,25 @@ export class Transaction extends BaseEntity {
   @Column('decimal', { precision: 18, scale: 7 })
   amount: string;
 
+  @Index('idx_transactions_currency_code')
+  @Column({ type: 'varchar', length: 12, default: 'USDC' })
+  currencyCode: string;
+
+  @Column({ type: 'varchar', length: 12, nullable: true })
+  assetCode: string | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  assetIssuer: string | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  assetContractId: string | null;
+
+  @Column('decimal', { precision: 18, scale: 7, nullable: true })
+  amountBaseCurrency: string | null;
+
+  @Column('decimal', { precision: 18, scale: 7, nullable: true })
+  conversionRateToBase: string | null;
+
   @Column({ type: 'varchar' })
   txHash?: string | null;
 

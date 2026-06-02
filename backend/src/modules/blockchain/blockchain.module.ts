@@ -22,6 +22,7 @@ import { YieldHandler } from './event-handlers/yield.handler';
 import { IndexerService } from './indexer.service';
 import { BalanceSyncService } from './balance-sync.service';
 import { ProtocolMetrics } from '../admin-analytics/entities/protocol-metrics.entity';
+import { CurrencyModule } from '../currency/currency.module';
 
 @Global()
 @Module({
@@ -42,6 +43,7 @@ import { ProtocolMetrics } from '../admin-analytics/entities/protocol-metrics.en
       SavingsProduct,
       ProtocolMetrics,
     ]),
+    CurrencyModule,
   ],
   controllers: [BlockchainController, StellarEventListenerController],
   providers: [

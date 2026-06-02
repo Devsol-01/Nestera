@@ -32,10 +32,14 @@ async function generate() {
     .setTitle('Nestera API')
     .setDescription(
       'Nestera is a decentralized savings & investment platform on Stellar. ' +
-      'All amounts are in USDC (7 decimal places).',
+        'Amounts include currency metadata and use currency-specific precision.',
     )
     .setVersion('2')
-    .setContact('Nestera Team', 'https://github.com/Devsol-01/Nestera', 'support@nestera.io')
+    .setContact(
+      'Nestera Team',
+      'https://github.com/Devsol-01/Nestera',
+      'support@nestera.io',
+    )
     .setLicense('MIT', 'https://opensource.org/licenses/MIT')
     .addServer('http://localhost:3001', 'Local development')
     .addServer('https://api.nestera.io', 'Production')

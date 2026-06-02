@@ -114,4 +114,8 @@ export default () => ({
       10,
     ),
   },
+  currency: {
+    baseCurrency: process.env.BASE_CURRENCY || 'USDC',
+    configJson: process.env.CURRENCY_CONFIG_JSON,
+  },
 });

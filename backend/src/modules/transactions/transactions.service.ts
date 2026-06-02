@@ -8,12 +8,14 @@ import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { TransactionResponseDto } from './dto/transaction-response.dto';
 import { PageDto } from '../../common/dto/page.dto';
 import { PageMetaDto } from '../../common/dto/page-meta.dto';
+import { CurrencyService } from '../currency/currency.service';
 
 @Injectable()
 export class TransactionsService {
   constructor(
     @InjectRepository(LedgerTransaction)
     private readonly transactionRepository: Repository<LedgerTransaction>,
+    private readonly currencyService: CurrencyService,
   ) {}
 
   async findAllForUser(
@@ -68,6 +70,9 @@ export class TransactionsService {
               userId: dto.userId,
               type: dto.type,
               amount: dto.amount,
+              currencyCode: dto.currencyCode,
+              amountBaseCurrency: dto.amountBaseCurrency ?? '',
+              conversionRateToBase: dto.conversionRateToBase ?? '',
               amountFormatted: dto.amountFormatted?.display ?? '',
               publicKey: dto.publicKey ?? '',
               eventId: dto.eventId,
@@ -77,6 +82,8 @@ export class TransactionsService {
               ledgerSequence: dto.ledgerSequence ?? '',
               poolId: dto.poolId ?? '',
               assetId: dto.assetId ?? '',
+              assetCode: dto.assetCode ?? '',
+              assetIssuer: dto.assetIssuer ?? '',
               metadata: dto.metadata ? JSON.stringify(dto.metadata) : '',
               createdAt: dto.createdAt,
             });
@@ -136,6 +143,12 @@ export class TransactionsService {
       });
     }
 
+    if (queryDto.currencyCode) {
+      queryBuilder.andWhere('transaction.currencyCode = :currencyCode', {
+        currencyCode: queryDto.currencyCode,
+      });
+    }
+
     // Filter by tags (any overlap)
     if (queryDto.tags && queryDto.tags.length > 0) {
       // Use Postgres array overlap operator (&&)
@@ -155,14 +168,34 @@ export class TransactionsService {
   ): TransactionResponseDto {
     const createdAt = new Date(transaction.createdAt);
 
-    // Extract asset ID from metadata or use default USDC
-    const assetId = this.extractAssetId(transaction);
+    const currency = this.currencyService.resolveCurrencyFromAsset({
+      currencyCode: transaction.currencyCode,
+      assetCode: transaction.assetCode,
+      assetContractId:
+        transaction.assetContractId ?? this.extractAssetId(transaction),
+    });
+
+    const normalized =
+      Number(transaction.amount) > 0
+        ? this.currencyService.normalizeAmount(
+            transaction.amount,
+            currency.code,
+          )
+        : {
+            amountBaseCurrency: transaction.amount,
+            conversionRateToBase: currency.conversion.rateToBase,
+          };
 
     return {
       id: transaction.id,
       userId: transaction.userId,
       type: transaction.type,
       amount: transaction.amount,
+      currencyCode: currency.code,
+      amountBaseCurrency:
+        transaction.amountBaseCurrency ?? normalized.amountBaseCurrency,
+      conversionRateToBase:
+        transaction.conversionRateToBase ?? normalized.conversionRateToBase,
       publicKey: transaction.publicKey,
       eventId: transaction.eventId,
       transactionHash: transaction.transactionHash,
@@ -183,7 +216,12 @@ export class TransactionsService {
         second: '2-digit',
       }),
       // Add assetId for interceptor formatting (will be enriched by interceptor)
-      assetId,
+      assetId:
+        transaction.assetContractId ??
+        currency.contractId ??
+        this.extractAssetId(transaction),
+      assetCode: transaction.assetCode ?? currency.stellarAssetCode,
+      assetIssuer: transaction.assetIssuer ?? currency.issuer ?? null,
     } as TransactionResponseDto;
   }
 
@@ -273,6 +311,10 @@ export class TransactionsService {
    * Extract asset ID from transaction metadata or return default
    */
   private extractAssetId(transaction: LedgerTransaction): string {
+    if (transaction.assetContractId) {
+      return transaction.assetContractId;
+    }
+
     // Check metadata for asset information
     if (transaction.metadata?.assetId) {
       return transaction.metadata.assetId as string;

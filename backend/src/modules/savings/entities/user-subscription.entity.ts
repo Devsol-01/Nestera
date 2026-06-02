@@ -29,6 +29,9 @@ export class UserSubscription {
   @Column('decimal', { precision: 14, scale: 2 })
   amount: number;
 
+  @Column({ type: 'varchar', length: 12, default: 'USDC' })
+  currencyCode: string;
+
   @Column({
     type: 'enum',
     enum: SubscriptionStatus,

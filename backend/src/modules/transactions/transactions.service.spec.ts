@@ -8,6 +8,8 @@ import {
 } from '../blockchain/entities/transaction.entity';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { Order } from '../../common/dto/page-options.dto';
+import { CurrencyService } from '../currency/currency.service';
+import { CurrencyCode } from '../currency/currency.types';
 
 describe('TransactionsService', () => {
   let service: TransactionsService;
@@ -26,6 +28,22 @@ describe('TransactionsService', () => {
     createQueryBuilder: jest.fn(() => mockQueryBuilder),
   };
 
+  const mockCurrencyService = {
+    resolveCurrencyFromAsset: jest.fn().mockReturnValue({
+      code: CurrencyCode.USDC,
+      stellarAssetCode: 'USDC',
+      issuer: null,
+      contractId: 'usdc-contract',
+      conversion: { rateToBase: '1' },
+    }),
+    normalizeAmount: jest.fn().mockReturnValue({
+      amount: '100.50',
+      currencyCode: CurrencyCode.USDC,
+      amountBaseCurrency: '100.5000000',
+      conversionRateToBase: '1',
+    }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -33,6 +51,10 @@ describe('TransactionsService', () => {
         {
           provide: getRepositoryToken(LedgerTransaction),
           useValue: mockRepository,
+        },
+        {
+          provide: CurrencyService,
+          useValue: mockCurrencyService,
         },
       ],
     }).compile();

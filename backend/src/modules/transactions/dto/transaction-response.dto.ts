@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { LedgerTransactionType } from '../../blockchain/entities/transaction.entity';
+import { CurrencyCode } from '../../currency/currency.types';
 
 export class TransactionResponseDto {
   @ApiProperty({ description: 'Transaction ID' })
@@ -16,6 +17,27 @@ export class TransactionResponseDto {
 
   @ApiProperty({ description: 'Transaction amount (raw decimal string)' })
   amount: string;
+
+  @ApiProperty({
+    description: 'Currency code used for the transaction',
+    enum: CurrencyCode,
+    example: CurrencyCode.USDC,
+  })
+  currencyCode: CurrencyCode | string;
+
+  @ApiProperty({
+    description: 'Amount converted to the configured base currency',
+    nullable: true,
+    example: '100.0000000',
+  })
+  amountBaseCurrency: string | null;
+
+  @ApiProperty({
+    description: 'Conversion rate from transaction currency to base currency',
+    nullable: true,
+    example: '1',
+  })
+  conversionRateToBase: string | null;
 
   @ApiProperty({
     description: 'Formatted amount with currency symbol and proper decimals',
@@ -72,6 +94,12 @@ export class TransactionResponseDto {
     example: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA',
   })
   assetId: string;
+
+  @ApiProperty({ description: 'Stellar asset code', nullable: true })
+  assetCode?: string | null;
+
+  @ApiProperty({ description: 'Stellar asset issuer', nullable: true })
+  assetIssuer?: string | null;
 
   @ApiProperty({ description: 'Additional metadata', nullable: true })
   metadata: Record<string, unknown> | null;
