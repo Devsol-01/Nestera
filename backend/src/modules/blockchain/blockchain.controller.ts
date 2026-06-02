@@ -14,6 +14,10 @@ export class BlockchainController {
 
   @Post('wallets/generate')
   @ApiOperation({ summary: 'Generate a new Stellar keypair' })
+  @ApiResponse({
+    status: 201,
+    description: 'New Stellar keypair (publicKey + secretKey)',
+  })
   generateWallet() {
     return this.stellarService.generateKeypair();
   }

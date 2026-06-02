@@ -11,7 +11,15 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiBody,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -37,6 +45,13 @@ export class AdminWaitlistController {
   ) {}
 
   @Get(':productId')
+  @ApiOperation({ summary: 'List waitlist entries for a product (admin)' })
+  @ApiParam({ name: 'productId', type: 'string' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Paginated waitlist entries' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   async listForProduct(
     @Param('productId') productId: string,
     @Query('page', ParseIntPipe) page = 1,
@@ -53,6 +68,13 @@ export class AdminWaitlistController {
   }
 
   @Post(':productId/entries/:entryId/promote')
+  @ApiOperation({ summary: 'Promote a waitlist entry (admin)' })
+  @ApiParam({ name: 'productId', type: 'string' })
+  @ApiParam({ name: 'entryId', type: 'string' })
+  @ApiBody({ schema: { example: { priority: 10 } } })
+  @ApiResponse({ status: 201, description: 'Entry promoted' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   async promoteEntry(
     @Param('productId') productId: string,
     @Param('entryId') entryId: string,
@@ -71,6 +93,12 @@ export class AdminWaitlistController {
 
   @Delete(':productId/entries/:entryId')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remove a waitlist entry (admin)' })
+  @ApiParam({ name: 'productId', type: 'string' })
+  @ApiParam({ name: 'entryId', type: 'string' })
+  @ApiResponse({ status: 204, description: 'Entry removed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   async removeEntry(
     @Param('productId') productId: string,
     @Param('entryId') entryId: string,
@@ -81,6 +109,14 @@ export class AdminWaitlistController {
   }
 
   @Post(':productId/release')
+  @ApiOperation({
+    summary: 'Release spots on a waitlist and notify users (admin)',
+  })
+  @ApiParam({ name: 'productId', type: 'string' })
+  @ApiBody({ schema: { example: { spots: 5 } } })
+  @ApiResponse({ status: 201, description: 'Spots released' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   async releaseSpots(
     @Param('productId') productId: string,
     @Body() body: { spots?: number },
@@ -91,6 +127,11 @@ export class AdminWaitlistController {
   }
 
   @Get(':productId/analytics')
+  @ApiOperation({ summary: 'Get waitlist analytics for a product (admin)' })
+  @ApiParam({ name: 'productId', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Waitlist analytics' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
   async analyticsForProduct(@Param('productId') productId: string) {
     const waitlistSize = await this.waitlistRepo.count({
       where: { productId, notifiedAt: IsNull() },

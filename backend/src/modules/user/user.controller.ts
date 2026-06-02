@@ -18,7 +18,10 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -112,11 +115,24 @@ export class UserController {
 
   @Get('me')
   @ApiOperation({ summary: 'Get basic info for the authenticated user' })
+  @ApiResponse({ status: 200, description: 'User basic info' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   getMe(@CurrentUser() user: { id: string }) {
     return this.userService.findById(user.id);
   }
 
   @Get('me/net-worth')
+  @ApiOperation({
+    summary: 'Get net worth breakdown for the authenticated user',
+    description:
+      'Returns wallet balance, flexible/locked savings, and percentage breakdown. Requires a linked Stellar public key.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Net worth data',
+    type: NetWorthDto,
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getNetWorth(@CurrentUser() user: { id: string }): Promise<NetWorthDto> {
     const userEntity = await this.userService.findById(user.id);
 
@@ -162,22 +178,57 @@ export class UserController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get a user by ID' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'User found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   findOne(@Param('id') id: string) {
     return this.userService.findById(id);
   }
 
   @Patch('me')
+  @ApiOperation({ summary: 'Update the authenticated user profile' })
+  @ApiBody({ type: UpdateUserDto })
+  @ApiResponse({ status: 200, description: 'Profile updated' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   updateMe(@CurrentUser() user: { id: string }, @Body() dto: UpdateUserDto) {
     return this.userService.update(user.id, dto);
   }
 
   @Delete('me')
+  @ApiOperation({ summary: 'Delete the authenticated user account' })
+  @ApiResponse({ status: 200, description: 'Account deleted' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   deleteMe(@CurrentUser() user: { id: string }) {
     return this.userService.remove(user.id);
   }
 
   @Post('avatar')
   @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({
+    summary: 'Upload a profile avatar image (JPEG/PNG/WebP, max 5 MB)',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Image file (JPEG, PNG, WebP)',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Avatar updated' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid file type or size exceeded',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async uploadAvatar(
     @CurrentUser() user: { id: string },
     @UploadedFile(
@@ -196,6 +247,28 @@ export class UserController {
 
   @Post('me/kyc-docs')
   @UseInterceptors(FileInterceptor('document'))
+  @ApiOperation({
+    summary: 'Upload a KYC identity document (PDF/JPEG, max 10 MB)',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        document: {
+          type: 'string',
+          format: 'binary',
+          description: 'KYC document (PDF or JPEG)',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'KYC document uploaded' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid file type or size exceeded',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async uploadKycDocument(
     @CurrentUser() user: { id: string },
     @UploadedFile(

@@ -42,25 +42,90 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger setup — one document per supported version
+  // Swagger setup — one document per supported version + canonical /api/docs
+  const swaggerBearerAuth = {
+    type: 'http' as const,
+    scheme: 'bearer',
+    bearerFormat: 'JWT',
+    description:
+      'Enter the JWT access token returned by POST /api/v2/auth/login or POST /api/v2/auth/verify-signature.',
+  };
+
+  const sharedDescription = [
+    '## Authentication',
+    'Most endpoints require a Bearer JWT. Obtain one via:',
+    '- `POST /api/v2/auth/login` — email/password',
+    '- `POST /api/v2/auth/verify-signature` — Stellar wallet signature',
+    '',
+    '## Rate Limiting',
+    '| Tier | Limit | Window | Applies to |',
+    '|------|-------|--------|------------|',
+    '| `general` | 100 req | 1 min | All routes |',
+    '| `auth` | 5 req | 15 min | Login, register, nonce, verify |',
+    '| `rpc` | 10–30 req | 1 min | On-chain read routes |',
+    '',
+    'Rate-limited responses return **HTTP 429** with a `Retry-After` header.',
+    '',
+    '## Common Error Responses',
+    '| Status | Meaning |',
+    '|--------|---------|',
+    '| 400 | Validation failure — check the `message` array |',
+    '| 401 | Missing or invalid JWT |',
+    '| 403 | Insufficient role (admin routes) |',
+    '| 404 | Resource not found |',
+    '| 429 | Rate limit exceeded |',
+    '| 500 | Internal server error |',
+  ].join('\n');
+
   for (const version of ['1', '2']) {
+    const isDeprecated = version === '1';
     const swaggerConfig = new DocumentBuilder()
-      .setTitle(`Nestera API v${version}`)
+      .setTitle('Nestera API')
       .setDescription(
-        version === '1'
-          ? 'API v1 — DEPRECATED. Sunset: 2026-09-01. Migrate to v2.'
-          : 'API v2 — Current stable version.',
+        `${isDeprecated ? '**⚠️ v1 is DEPRECATED — Sunset: 2026-09-01. Please migrate to v2.**\n\n' : ''}${sharedDescription}`,
       )
       .setVersion(version)
-      .addBearerAuth()
+      .setContact('Nestera Team', 'https://github.com/Devsol-01/Nestera', '')
+      .setLicense('MIT', 'https://opensource.org/licenses/MIT')
+      .addBearerAuth(swaggerBearerAuth)
+      .addTag('auth', 'Authentication — register, login, 2FA, wallet linking')
+      .addTag(
+        'savings',
+        'Savings products, subscriptions, goals, auto-deposits',
+      )
+      .addTag('users', 'User profile, avatar, KYC documents, net worth')
+      .addTag('Transactions', 'Transaction history, CSV export, tagging')
+      .addTag(
+        'analytics',
+        'Portfolio timeline, asset allocation, yield breakdown',
+      )
+      .addTag('notifications', 'In-app notifications and preferences')
+      .addTag('referrals', 'Referral codes and stats')
+      .addTag('rewards', 'Leaderboards and reward visibility')
+      .addTag('governance', 'Voting power, delegation')
+      .addTag('kyc', 'KYC verification flow and compliance')
+      .addTag('claims', 'Medical claims submission and verification')
+      .addTag('disputes', 'Dispute creation and resolution')
+      .addTag(
+        'Blockchain',
+        'Stellar on-chain data, wallet generation, RPC status',
+      )
+      .addTag('admin', 'Admin-only user and KYC management')
       .build();
+
     const document = SwaggerModule.createDocument(app, swaggerConfig);
     SwaggerModule.setup(`api/v${version}/docs`, app, document);
+
+    // Canonical /api/docs always points to v2
+    if (version === '2') {
+      SwaggerModule.setup('api/docs', app, document);
+    }
   }
 
   const server = await app.listen(port || 3001);
   const logger = app.get(Logger);
   logger.log(`Application is running on: http://localhost:${port}/api`);
+  logger.log(`Swagger docs (canonical): http://localhost:${port}/api/docs`);
   logger.log(
     `Swagger v1 docs (deprecated): http://localhost:${port}/api/v1/docs`,
   );

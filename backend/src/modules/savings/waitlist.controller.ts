@@ -13,6 +13,7 @@ import {
   ApiBearerAuth,
   ApiParam,
   ApiOperation,
+  ApiResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -29,6 +30,13 @@ export class WaitlistController {
   @ApiBearerAuth()
   @ApiParam({ name: 'id', description: 'Product UUID' })
   @ApiOperation({ summary: 'Join waitlist for a savings product' })
+  @ApiResponse({
+    status: 201,
+    description: 'Joined waitlist',
+    schema: { example: { id: 'uuid', position: 5 } },
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 409, description: 'Already on waitlist' })
   async join(
     @Param('id') id: string,
     @CurrentUser() user: { id: string; email: string },
@@ -46,6 +54,9 @@ export class WaitlistController {
   @ApiBearerAuth()
   @ApiParam({ name: 'id', description: 'Product UUID' })
   @ApiOperation({ summary: 'Get current position on waitlist' })
+  @ApiResponse({ status: 200, description: 'Waitlist position' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Not on waitlist' })
   async getPosition(
     @Param('id') id: string,
     @CurrentUser() user: { id: string },
@@ -61,6 +72,9 @@ export class WaitlistController {
   @ApiBearerAuth()
   @ApiParam({ name: 'id', description: 'Product UUID' })
   @ApiOperation({ summary: 'Leave waitlist for a savings product' })
+  @ApiResponse({ status: 204, description: 'Left waitlist' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Not on waitlist' })
   async leaveWaitlist(
     @Param('id') id: string,
     @CurrentUser() user: { id: string },

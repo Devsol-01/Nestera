@@ -11,7 +11,9 @@ import {
 import { Response } from 'express';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -85,6 +87,17 @@ export class TransactionsController {
   }
 
   @Post(':id/tag')
+  @ApiOperation({ summary: 'Add or update a tag on a transaction' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    format: 'uuid',
+    description: 'Transaction ID',
+  })
+  @ApiBody({ type: TagTransactionDto })
+  @ApiResponse({ status: 201, description: 'Tag applied' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Transaction not found' })
   async tagTransaction(
     @CurrentUser() user: { id: string },
     @Param('id') id: string,
@@ -94,11 +107,21 @@ export class TransactionsController {
   }
 
   @Get('categories')
+  @ApiOperation({
+    summary: 'List distinct transaction categories for the current user',
+  })
+  @ApiResponse({ status: 200, description: 'List of category strings' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getCategories(@CurrentUser() user: { id: string }) {
     return this.transactionsService.listCategories(user.id);
   }
 
   @Post('tags/bulk')
+  @ApiOperation({ summary: 'Apply tags to multiple transactions at once' })
+  @ApiBody({ type: BulkTagDto })
+  @ApiResponse({ status: 201, description: 'Bulk tags applied' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async bulkTag(@CurrentUser() user: { id: string }, @Body() body: BulkTagDto) {
     return this.transactionsService.bulkTag(user.id, body);
   }

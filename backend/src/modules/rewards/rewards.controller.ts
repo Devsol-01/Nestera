@@ -1,6 +1,7 @@
 import { Controller, Get, Patch, Query, Body, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -69,7 +70,9 @@ export class RewardsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update leaderboard visibility (privacy setting)' })
+  @ApiBody({ type: UpdateVisibilityDto })
   @ApiResponse({ status: 200, description: 'Visibility updated' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   updateVisibility(
     @CurrentUser() user: { id: string },
     @Body() dto: UpdateVisibilityDto,

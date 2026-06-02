@@ -1,5 +1,11 @@
 import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiBody,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { NotificationsService } from './notifications.service';
@@ -15,6 +21,8 @@ export class UserNotificationsController {
 
   @Get('preferences')
   @ApiOperation({ summary: 'Get all notification preference settings' })
+  @ApiResponse({ status: 200, description: 'Notification preferences' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   getPreferences(@CurrentUser() user: User) {
     return this.notificationsService.getOrCreatePreferences(user.id);
   }
@@ -24,6 +32,9 @@ export class UserNotificationsController {
     summary:
       'Update notification preferences (channels, types, quiet hours, digest frequency)',
   })
+  @ApiBody({ type: UpdateNotificationPreferenceDto })
+  @ApiResponse({ status: 200, description: 'Preferences updated' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   updatePreferences(
     @CurrentUser() user: User,
     @Body() dto: UpdateNotificationPreferenceDto,

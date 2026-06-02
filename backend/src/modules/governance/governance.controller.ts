@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -32,6 +33,7 @@ export class GovernanceController {
     description: 'Delegation lookup result',
     type: DelegationResponseDto,
   })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   getDelegation(
     @CurrentUser() user: { id: string },
   ): Promise<DelegationResponseDto> {
@@ -49,6 +51,7 @@ export class GovernanceController {
     description: 'Voting power lookup result',
     type: VotingPowerResponseDto,
   })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   getVotingPower(
     @CurrentUser() user: { id: string },
   ): Promise<VotingPowerResponseDto> {
@@ -59,6 +62,7 @@ export class GovernanceController {
 
   @Post('governance/delegate')
   @ApiOperation({ summary: 'Delegate voting power to a trusted address' })
+  @ApiBody({ type: DelegateVoteDto })
   @ApiResponse({
     status: 201,
     description: 'Delegation set',
@@ -68,6 +72,7 @@ export class GovernanceController {
     },
   })
   @ApiResponse({ status: 400, description: 'Loop detected or invalid address' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   delegate(
     @CurrentUser() user: { id: string },
     @Body() dto: DelegateVoteDto,
@@ -78,6 +83,7 @@ export class GovernanceController {
   @Delete('governance/delegate')
   @ApiOperation({ summary: 'Revoke current voting power delegation' })
   @ApiResponse({ status: 200, description: 'Delegation revoked' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   revokeDelegate(@CurrentUser() user: { id: string }): Promise<void> {
     return this.governanceService.revokeDelegate(user.id);
   }
@@ -97,6 +103,7 @@ export class GovernanceController {
       },
     },
   })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   getMyDelegation(
     @CurrentUser() user: { id: string },
   ): Promise<{ delegate: string | null; totalDelegatedPower: number }> {
@@ -116,6 +123,7 @@ export class GovernanceController {
       },
     },
   })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   getMyDelegators(
     @CurrentUser() user: { id: string },
   ): Promise<{ delegators: string[]; totalDelegatedPower: number }> {

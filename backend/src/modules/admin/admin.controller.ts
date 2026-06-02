@@ -11,7 +11,9 @@ import {
 import {
   ApiTags,
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
+  ApiParam,
   ApiResponse,
 } from '@nestjs/swagger';
 import { UserService } from '../user/user.service';
@@ -34,6 +36,17 @@ export class AdminController {
   ) {}
 
   @Patch('users/:id/kyc/approve')
+  @ApiOperation({ summary: 'Approve KYC for a user (admin only)' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    format: 'uuid',
+    description: 'User ID',
+  })
+  @ApiResponse({ status: 200, description: 'KYC approved' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — admin role required' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async approveKyc(@Param('id') userId: string) {
     if (!userId) {
       throw new BadRequestException('User ID is required');
@@ -42,6 +55,18 @@ export class AdminController {
   }
 
   @Patch('users/:id/kyc/reject')
+  @ApiOperation({ summary: 'Reject KYC for a user with a reason (admin only)' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    format: 'uuid',
+    description: 'User ID',
+  })
+  @ApiBody({ type: RejectKycDto })
+  @ApiResponse({ status: 200, description: 'KYC rejected' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — admin role required' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async rejectKyc(@Param('id') userId: string, @Body() dto: RejectKycDto) {
     if (!userId) {
       throw new BadRequestException('User ID is required');
@@ -53,6 +78,38 @@ export class AdminController {
   }
 
   @Patch('users/:id/kyc')
+  @ApiOperation({
+    summary: 'Approve or reject KYC in a single call (admin only)',
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    format: 'uuid',
+    description: 'User ID',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['action'],
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['approve', 'reject'],
+          example: 'approve',
+        },
+        reason: {
+          type: 'string',
+          example: 'Document mismatch',
+          description: 'Required when action is reject',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'KYC status updated' })
+  @ApiResponse({ status: 400, description: 'Invalid action or missing reason' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden — admin role required' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async updateKycStatus(
     @Param('id') userId: string,
     @Body() body: { action: 'approve' | 'reject'; reason?: string },

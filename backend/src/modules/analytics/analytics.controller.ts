@@ -104,11 +104,14 @@ export class AnalyticsController {
   @Get('rebalancing-suggestions')
   @ApiOperation({
     summary: 'Get risk-adjusted portfolio rebalancing suggestions',
+    description:
+      'Returns recommendations for rebalancing based on the selected risk profile (conservative, balanced, aggressive).',
   })
   @ApiResponse({
     status: 200,
     description: 'Rebalancing recommendation payload',
   })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getRebalancingSuggestions(
     @CurrentUser() user: { id: string },
     @Query() query: RebalancingQueryDto,
