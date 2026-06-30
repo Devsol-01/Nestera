@@ -36,6 +36,12 @@ import {
   DATA_EXPORT_PENDING_TTL_MS,
   DATA_EXPORT_QUEUE,
 } from './data-export.constants';
+import { AuditLogService } from '../../common/services/audit-log.service';
+import {
+  AuditAction,
+  AuditResourceType,
+  SYSTEM_ACTOR,
+} from '../../common/entities/audit-log.entity';
 
 const EXPORT_DIR = path.join(os.tmpdir(), 'nestera-exports');
 const MAX_ACTIVE_EXPORTS_PER_USER = 2;
@@ -58,6 +64,7 @@ export class DataExportService {
     private readonly mailService: MailService,
     @InjectQueue(DATA_EXPORT_QUEUE)
     private readonly dataExportQueue: Queue,
+    private readonly auditLogService: AuditLogService,
   ) {
     fs.mkdirSync(EXPORT_DIR, { recursive: true });
   }
@@ -243,7 +250,7 @@ export class DataExportService {
     };
   }
 
-  async processExportJob(requestId: string): Promise<void> {
+  async processExportJob(requestId: string, bullJobId?: string): Promise<void> {
     const request = await this.exportRepository.findOne({
       where: { id: requestId },
     });
@@ -274,6 +281,16 @@ export class DataExportService {
       });
       throw new NotFoundException('User not found');
     }
+
+    const startedAt = Date.now();
+
+    // Capture before-state for audit diff
+    const beforeState = {
+      requestId: request.id,
+      userId: request.userId,
+      status: request.status,
+      createdAt: request.createdAt?.toISOString(),
+    };
 
     await this.exportRepository.update(request.id, {
       status: ExportStatus.PROCESSING,
@@ -327,6 +344,29 @@ export class DataExportService {
       );
 
       this.logger.log(`Export ${request.id} completed for user ${user.id}`);
+
+      // Audit log – successful user data export job
+      await this.auditLogService.log({
+        actor: SYSTEM_ACTOR,
+        action: AuditAction.EXPORT_JOB,
+        resourceType: AuditResourceType.JOB,
+        resourceId: request.id,
+        jobId: bullJobId ?? request.queueJobId ?? request.id,
+        correlationId: request.id,
+        description: `User data export job completed: userId=${user.id}, transactions=${transactions.length}, goals=${goals.length}, notifications=${notifications.length}.`,
+        previousValue: beforeState,
+        newValue: {
+          status: ExportStatus.READY,
+          completedAt: new Date().toISOString(),
+          recordCounts: {
+            transactions: transactions.length,
+            goals: goals.length,
+            notifications: notifications.length,
+          },
+        },
+        durationMs: Date.now() - startedAt,
+        success: true,
+      });
     } catch (err) {
       const latest = await this.exportRepository.findOne({
         where: { id: request.id },
@@ -335,10 +375,28 @@ export class DataExportService {
         return;
       }
 
+      const errorMessage = err instanceof Error ? err.message : 'Export failed';
       await this.exportRepository.update(request.id, {
         status: ExportStatus.FAILED,
-        errorMessage: err instanceof Error ? err.message : 'Export failed',
+        errorMessage,
       });
+
+      // Audit log – failed user data export job
+      await this.auditLogService.log({
+        actor: SYSTEM_ACTOR,
+        action: AuditAction.EXPORT_JOB,
+        resourceType: AuditResourceType.JOB,
+        resourceId: request.id,
+        jobId: bullJobId ?? request.queueJobId ?? request.id,
+        correlationId: request.id,
+        description: `User data export job failed: userId=${user.id}, error=${errorMessage}.`,
+        previousValue: beforeState,
+        newValue: { status: ExportStatus.FAILED, errorMessage },
+        durationMs: Date.now() - startedAt,
+        success: false,
+        errorMessage,
+      });
+
       throw err;
     }
   }

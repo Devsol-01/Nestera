@@ -14,6 +14,9 @@ export class AdminExportProcessor {
 
   @Process(ADMIN_EXPORT_JOB_NAME)
   async handle(job: Job<{ exportJobId: string }>): Promise<void> {
-    await this.adminExportService.processExportJob(job.data.exportJobId);
+    await this.adminExportService.processExportJob(
+      job.data.exportJobId,
+      String(job.id),
+    );
   }
 }

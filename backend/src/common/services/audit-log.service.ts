@@ -10,6 +10,8 @@ import {
 export interface CreateAuditLogDto {
   correlationId?: string;
   requestId?: string;
+  /** Background job ID (Bull/BullMQ job.id). Only set for system-initiated entries. */
+  jobId?: string;
   endpoint?: string;
   method?: string;
   action?: AuditAction;

@@ -35,6 +35,11 @@ export enum AuditAction {
   DEPOSIT = 'DEPOSIT',
   WITHDRAW = 'WITHDRAW',
   VOTE = 'VOTE',
+  // Background / automated job actions
+  RECONCILE = 'RECONCILE',
+  CLEANUP = 'CLEANUP',
+  ARCHIVE = 'ARCHIVE',
+  EXPORT_JOB = 'EXPORT_JOB',
 }
 
 export enum AuditResourceType {
@@ -50,7 +55,15 @@ export enum AuditResourceType {
   WITHDRAWAL_REQUEST = 'WITHDRAWAL_REQUEST',
   SYSTEM = 'SYSTEM',
   GOVERNANCE = 'GOVERNANCE',
+  /** Background jobs and scheduled tasks */
+  JOB = 'JOB',
 }
+
+/**
+ * Canonical actor identifier used for automated/background processes.
+ * Use this instead of a real user ID when there is no human initiator.
+ */
+export const SYSTEM_ACTOR = 'SYSTEM';
 
 @Entity('audit_logs')
 @Index('idx_audit_logs_correlation_id', ['correlationId'])
@@ -68,6 +81,13 @@ export class AuditLog {
 
   @Column({ nullable: true })
   requestId: string;
+
+  /**
+   * ID of the background job (Bull/BullMQ job.id) that triggered this entry.
+   * Populated only for automated/system-initiated audit entries.
+   */
+  @Column({ nullable: true })
+  jobId: string;
 
   @CreateDateColumn()
   timestamp: Date;

@@ -15,6 +15,12 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { DataScopeService } from '../../../common/services/data-scope.service';
+import { AuditLogService } from '../../../common/services/audit-log.service';
+import {
+  AuditAction,
+  AuditResourceType,
+  SYSTEM_ACTOR,
+} from '../../../common/entities/audit-log.entity';
 import { Role } from '../../../common/enums/role.enum';
 import { Transaction } from '../../transactions/entities/transaction.entity';
 import { Dispute } from '../../disputes/entities/dispute.entity';
@@ -50,6 +56,7 @@ export class AdminExportService {
     @InjectQueue(ADMIN_EXPORT_QUEUE)
     private readonly exportQueue: Queue,
     private readonly dataScopeService: DataScopeService,
+    private readonly auditLogService: AuditLogService,
   ) {
     fs.mkdirSync(this.exportDir, { recursive: true });
   }
@@ -146,7 +153,7 @@ export class AdminExportService {
     stream.end();
   }
 
-  async processExportJob(jobId: string): Promise<void> {
+  async processExportJob(jobId: string, bullJobId?: string): Promise<void> {
     const job = await this.exportJobRepository.findOne({
       where: { id: jobId },
     });
@@ -164,6 +171,17 @@ export class AdminExportService {
     if (job.status === AdminExportStatus.COMPLETED && job.filePath) {
       return;
     }
+
+    const startedAt = Date.now();
+
+    // Capture before-state for audit diff
+    const beforeState = {
+      jobId: job.id,
+      dataType: job.dataType,
+      status: job.status,
+      requestedBy: job.userId,
+      requestedByRole: job.requestedByRole,
+    };
 
     await this.exportJobRepository.update(job.id, {
       status: AdminExportStatus.PROCESSING,
@@ -210,6 +228,25 @@ export class AdminExportService {
       });
 
       this.logger.log(`Admin export job ${job.id} completed`);
+
+      // Audit log – successful background export
+      await this.auditLogService.log({
+        actor: SYSTEM_ACTOR,
+        action: AuditAction.EXPORT_JOB,
+        resourceType: AuditResourceType.JOB,
+        resourceId: job.id,
+        jobId: bullJobId ?? job.queueJobId ?? job.id,
+        description: `Admin export job completed: dataType=${job.dataType}, rows=${rows.length}, requestedBy=${job.userId}`,
+        previousValue: beforeState,
+        newValue: {
+          status: AdminExportStatus.COMPLETED,
+          fileName,
+          rowCount: rows.length,
+          completedAt: new Date().toISOString(),
+        },
+        durationMs: Date.now() - startedAt,
+        success: true,
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unknown export error';
@@ -218,6 +255,22 @@ export class AdminExportService {
         errorMessage: message,
       });
       this.logger.error(`Admin export job ${job.id} failed: ${message}`);
+
+      // Audit log – failed background export
+      await this.auditLogService.log({
+        actor: SYSTEM_ACTOR,
+        action: AuditAction.EXPORT_JOB,
+        resourceType: AuditResourceType.JOB,
+        resourceId: job.id,
+        jobId: bullJobId ?? job.queueJobId ?? job.id,
+        description: `Admin export job failed: dataType=${job.dataType}, requestedBy=${job.userId}, error=${message}`,
+        previousValue: beforeState,
+        newValue: { status: AdminExportStatus.FAILED, errorMessage: message },
+        durationMs: Date.now() - startedAt,
+        success: false,
+        errorMessage: message,
+      });
+
       throw error;
     }
   }
