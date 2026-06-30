@@ -66,6 +66,7 @@
     "joi": "^18.0.2",
     "js-yaml": "^5.2.0",
     "multer": "^2.1.1",
+    "nestjs-cls": "^6.2.1",
     "nestjs-pino": "^4.6.1",
     "nodemailer": "^8.0.1",
     "passport": "^0.7.0",
