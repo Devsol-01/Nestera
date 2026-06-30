@@ -23,6 +23,7 @@ import {
 import { VersionAnalyticsInterceptor } from './common/versioning/version-analytics.interceptor';
 import { VersionAnalyticsService } from './common/versioning/version-analytics.service';
 import { GracefulShutdownService } from './common/services/graceful-shutdown.service';
+import { createRequestDecompressionGuard } from './common/middleware/request-decompression.middleware';
 import { ContractCompatibilityService } from './common/services/contract-compatibility.service';
 import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import { flattenValidationErrors } from './common/validators/validation-error.utils';
@@ -109,11 +110,46 @@ async function bootstrap() {
     }),
   );
 
-  // Request body size limits
-  const jsonBodyLimit = process.env.JSON_BODY_LIMIT || '1mb';
-  const urlencodedLimit = process.env.URLENCODED_BODY_LIMIT || '1mb';
-  app.use(express.json({ limit: jsonBodyLimit }));
-  app.use(express.urlencoded({ limit: urlencodedLimit, extended: true }));
+  // Inbound request body decompression (gzip/deflate) with safety limits.
+  // The guard restricts which Content-Encodings are accepted and can disable
+  // compressed bodies entirely; the body parser (below) performs the actual
+  // inflation and enforces `limit` against the *decompressed* stream — a zip
+  // bomb is aborted with HTTP 413 before it is fully buffered.
+  const requestDecompression = configService.get<{
+    enabled: boolean;
+    allowedEncodings: string[];
+    maxDecompressedSize: string;
+  }>('compression.request') ?? {
+    enabled: true,
+    allowedEncodings: ['gzip', 'deflate'],
+    maxDecompressedSize: process.env.JSON_BODY_LIMIT || '1mb',
+  };
+  app.use(
+    createRequestDecompressionGuard({
+      enabled: requestDecompression.enabled,
+      allowedEncodings: requestDecompression.allowedEncodings,
+    }),
+  );
+
+  // Request body size limits. `limit` caps the decompressed payload size and
+  // `inflate` toggles gzip/deflate decompression in line with the guard.
+  const jsonBodyLimit = requestDecompression.maxDecompressedSize;
+  const urlencodedLimit =
+    process.env.URLENCODED_BODY_LIMIT ||
+    requestDecompression.maxDecompressedSize;
+  app.use(
+    express.json({
+      limit: jsonBodyLimit,
+      inflate: requestDecompression.enabled,
+    }),
+  );
+  app.use(
+    express.urlencoded({
+      limit: urlencodedLimit,
+      extended: true,
+      inflate: requestDecompression.enabled,
+    }),
+  );
 
   app.use(
     helmet({

@@ -361,6 +361,24 @@ export default () => ({
     threshold: parseInt(process.env.COMPRESSION_THRESHOLD || '1024', 10),
     jsonBodyLimit: process.env.JSON_BODY_LIMIT || '1mb',
     urlencodedBodyLimit: process.env.URLENCODED_BODY_LIMIT || '1mb',
+    // Inbound (request body) decompression of gzip/deflate payloads.
+    request: {
+      // Toggle support for compressed request bodies (default: enabled).
+      enabled: process.env.REQUEST_DECOMPRESSION_ENABLED !== 'false',
+      // Encodings the body parser is allowed to inflate. Restricted to the
+      // formats body-parser can safely handle.
+      allowedEncodings: (process.env.REQUEST_ALLOWED_ENCODINGS || 'gzip,deflate')
+        .split(',')
+        .map((encoding) => encoding.trim().toLowerCase())
+        .filter(Boolean),
+      // Maximum *decompressed* body size. Enforced by the body parser against
+      // the inflated stream, so an over-sized zip bomb is aborted with HTTP 413
+      // before it is fully buffered. Defaults to the JSON body limit.
+      maxDecompressedSize:
+        process.env.REQUEST_MAX_DECOMPRESSED_SIZE ||
+        process.env.JSON_BODY_LIMIT ||
+        '1mb',
+    },
   },
   multiTenant: {
     enabled: process.env.MULTI_TENANT_ENABLED === 'true',
