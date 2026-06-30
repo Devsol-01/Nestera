@@ -43,6 +43,7 @@ export class GovernanceProposalsController {
   @Post('create')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary: 'Create a governance proposal',
     description:
@@ -251,6 +252,7 @@ export class GovernanceProposalsController {
   @Post(':id/queue')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Queue a passed proposal (starts timelock)' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -307,6 +309,7 @@ export class GovernanceProposalsController {
   @Post(':id/cancel')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Cancel a proposal (creator only)' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -335,6 +338,7 @@ export class GovernanceProposalsController {
   @Post(':id/finalize')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary: 'Finalize voting on a proposal (ACTIVE → PASSED / FAILED)',
     description:

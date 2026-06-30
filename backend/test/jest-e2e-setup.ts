@@ -61,3 +61,9 @@ process.env.REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 process.env.STELLAR_WEBHOOK_SECRET =
   process.env.STELLAR_WEBHOOK_SECRET ||
   'test_webhook_secret_long_enough_minimum_16_chars';
+
+// ── Test Mode ──────────────────────────────────────────────────────────────
+// Enable deterministic test mode for all E2E tests.
+// This stubs external providers (Stellar RPC, email, storage, KYC, etc.)
+// so that tests run reliably without network dependencies.
+process.env.TEST_MODE = process.env.TEST_MODE || 'true';

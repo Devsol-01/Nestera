@@ -11,6 +11,8 @@ import {
 import {
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
+  MIN_PAGE,
+  PAGE_VALIDATION_MESSAGES,
   PageOptionsDto,
 } from '../../../common/dto/page-options.dto';
 import { TransactionSearchCriteriaDto } from './transaction-search-criteria.dto';
@@ -18,8 +20,8 @@ import { TransactionSearchCriteriaDto } from './transaction-search-criteria.dto'
 export class TransactionQueryDto extends TransactionSearchCriteriaDto {
   @ApiPropertyOptional({ minimum: 1, default: 1, example: 1 })
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: PAGE_VALIDATION_MESSAGES.pageInt })
+  @Min(MIN_PAGE, { message: PAGE_VALIDATION_MESSAGES.pageMin })
   @IsOptional()
   page?: PageOptionsDto['page'] = 1;
 
@@ -30,27 +32,28 @@ export class TransactionQueryDto extends TransactionSearchCriteriaDto {
     example: DEFAULT_PAGE_SIZE,
   })
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(MAX_PAGE_SIZE)
+  @IsInt({ message: PAGE_VALIDATION_MESSAGES.limitInt })
+  @Min(MIN_PAGE, { message: PAGE_VALIDATION_MESSAGES.limitMin })
+  @Max(MAX_PAGE_SIZE, { message: PAGE_VALIDATION_MESSAGES.limitMax })
   @IsOptional()
   limit?: PageOptionsDto['limit'] = DEFAULT_PAGE_SIZE;
 
   @ApiPropertyOptional({
-    description: 'Opaque cursor for cursor-based pagination',
+    description:
+      "Opaque cursor returned in the previous response's meta.nextCursor. Do not construct manually.",
     example: 'eyJpZCI6IDEwfQ==',
   })
   @IsOptional()
-  @IsString()
+  @IsString({ message: PAGE_VALIDATION_MESSAGES.cursorString })
   cursor?: string;
 
   @ApiPropertyOptional({
-    description: 'Set to true to include totalCount metadata',
-    default: false,
-    example: false,
+    description: 'Set to "true" to include totalCount metadata',
+    default: 'false',
+    example: 'true',
   })
   @IsOptional()
-  @IsBooleanString()
+  @IsBooleanString({ message: PAGE_VALIDATION_MESSAGES.includeTotalBool })
   includeTotal?: string;
 
   get pageSize(): number {

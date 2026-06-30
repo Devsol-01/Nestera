@@ -36,6 +36,7 @@ import { AvatarUploadResponseDto } from './dto/avatar-upload-response.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CorrelationId } from '../../common/decorators/correlation-id.decorator';
+import { Throttle } from '@nestjs/throttler';
 
 import { FileValidator } from '@nestjs/common';
 
@@ -196,6 +197,7 @@ export class UserController {
 
   @Post('avatar')
   @HttpCode(HttpStatus.ACCEPTED)
+  @Throttle({ upload: { limit: 10, ttl: 60_000 } })
   @ApiOperation({
     summary: 'Upload a profile avatar image',
     description:
@@ -272,6 +274,7 @@ export class UserController {
   }
 
   @Post('me/kyc-docs')
+  @Throttle({ upload: { limit: 5, ttl: 60_000 } })
   @ApiOperation({
     summary: 'Upload a KYC document',
     description:

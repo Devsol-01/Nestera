@@ -6,22 +6,69 @@ on:
       - develop
       - main
     tags:
-      - "v*"
+      - 'v*'
     paths:
-      - "backend/**"
-      - ".github/workflows/backend-ci-cd.yml"
+      - 'backend/**'
+      - 'sdk/**'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/backend-ci-cd.yml'
   pull_request:
     branches:
       - develop
       - main
     paths:
-      - "backend/**"
+      - 'backend/**'
+      - 'sdk/**'
+      - 'package.json'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/backend-ci-cd.yml'
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/backend
 
 jobs:
+  # ============================================================================
+  # CONTRACTS / SDK: Keep OpenAPI + generated client in sync
+  # ============================================================================
+  openapi-sdk:
+    runs-on: ubuntu-latest
+    name: OpenAPI / SDK Sync
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'backend/pnpm-lock.yaml'
+
+      - name: Install backend dependencies
+        run: cd backend && pnpm install --frozen-lockfile
+
+      - name: Install SDK generator dependencies
+        run: cd sdk && pnpm install --no-frozen-lockfile
+
+      - name: Generate OpenAPI and SDK artifacts
+        run: pnpm run generate:api-sdk
+
+      - name: Run contract tests
+        run: cd backend && npm run test:contract
+
+      - name: Upload generated SDK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nestera-typed-sdk
+          path: sdk/src/generated
+          retention-days: 7
+
   # ============================================================================
   # TEST: Unit Tests
   # ============================================================================
@@ -39,9 +86,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "pnpm"
-          cache-dependency-path: "backend/pnpm-lock.yaml"
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'backend/pnpm-lock.yaml'
 
       - name: Install dependencies
         run: cd backend && pnpm install --frozen-lockfile
@@ -65,7 +112,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     name: Build
-    needs: test
+    needs:
+      - openapi-sdk
+      - test
 
     steps:
       - name: Checkout code
@@ -77,9 +126,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "pnpm"
-          cache-dependency-path: "backend/pnpm-lock.yaml"
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'backend/pnpm-lock.yaml'
 
       - name: Install dependencies
         run: cd backend && pnpm install --frozen-lockfile
@@ -125,9 +174,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "pnpm"
-          cache-dependency-path: "backend/pnpm-lock.yaml"
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'backend/pnpm-lock.yaml'
 
       - name: Install dependencies
         run: cd backend && pnpm install --frozen-lockfile

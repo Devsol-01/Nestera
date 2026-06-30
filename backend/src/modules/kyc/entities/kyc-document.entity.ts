@@ -66,6 +66,15 @@ export class KycDocument {
   @Column({ type: 'timestamp', nullable: true })
   reviewedAt!: Date | null;
 
+  /**
+   * Token returned by {@link StorageQuotaService.reserve} when the document
+   * was accepted. KYC documents commit immediately after upload, but the
+   * token is kept for audit and so future deletion paths can refund quota.
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  @Index()
+  quotaReservationId!: string | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 

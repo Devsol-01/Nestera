@@ -73,6 +73,18 @@ export class AvatarUpload {
   @Column({ type: 'jsonb', nullable: true })
   processingMetadata: Record<string, unknown> | null;
 
+  /**
+   * Token returned by {@link StorageQuotaService.reserve} when the upload
+   * was accepted. The background processor calls `commit()` on success
+   * (with the actual stored byte total after thumbnailing) or `release()`
+   * on failure so the per-user quota ledger reconciles correctly even when
+   * the upload is short-circuited before completing.
+   */
+  @ApiProperty({ nullable: true })
+  @Index()
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  quotaReservationId: string | null;
+
   @ApiProperty()
   @CreateDateColumn()
   createdAt: Date;

@@ -4,8 +4,12 @@ import { Job } from 'bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { QUEUE_NAMES } from '../job-queue.constants';
-import { DisputeEvidence, EvidenceProcessingStatus } from '../../disputes/entities/dispute-evidence.entity';
+import {
+  DisputeEvidence,
+  EvidenceProcessingStatus,
+} from '../../disputes/entities/dispute-evidence.entity';
 import { DisputeEvidenceJobData } from '../job-queue.service';
+import { StorageQuotaService } from '../../storage-quota/storage-quota.service';
 
 @Processor(QUEUE_NAMES.DISPUTE_EVIDENCE)
 export class DisputeEvidenceProcessor extends WorkerHost {
@@ -14,6 +18,7 @@ export class DisputeEvidenceProcessor extends WorkerHost {
   constructor(
     @InjectRepository(DisputeEvidence)
     private readonly evidenceRepository: Repository<DisputeEvidence>,
+    private readonly quotaService: StorageQuotaService,
   ) {
     super();
   }
@@ -46,6 +51,12 @@ export class DisputeEvidenceProcessor extends WorkerHost {
         processingError: null,
       });
 
+      // Reconcile quota: actual stored size is the original evidence file.
+      // The processor does not re-encode the bytes, so the on-disk size
+      // is the same as the upload's fileSize — looked up from the entity
+      // by the helper so this call doesn't depend on Bull job data.
+      await this.commitQuota(evidenceId);
+
       this.logger.log(
         `${correlationPrefix}Evidence job ${job.id} completed — evidenceId=${evidenceId}`,
       );
@@ -64,8 +75,46 @@ export class DisputeEvidenceProcessor extends WorkerHost {
         processingError: errMsg,
       });
 
+      // Free the reserved quota so the disputer isn't permanently blocked
+      // by a failed processing run.
+      await this.releaseQuota(evidenceId, 'evidence-process-failed');
+
       // Re-throw so BullMQ can apply retry/backoff
       throw error;
+    }
+  }
+
+  private async commitQuota(evidenceId: string): Promise<void> {
+    const evidence = await this.evidenceRepository.findOne({
+      where: { id: evidenceId },
+    });
+    if (!evidence || !evidence.quotaReservationId) return;
+    try {
+      await this.quotaService.commit(evidence.quotaReservationId, {
+        finalBytes: Math.max(0, evidence.fileSize),
+        reason: 'evidence-processed',
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to commit quota for evidence ${evidenceId}: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  private async releaseQuota(
+    evidenceId: string,
+    reason: string,
+  ): Promise<void> {
+    const evidence = await this.evidenceRepository.findOne({
+      where: { id: evidenceId },
+    });
+    if (!evidence || !evidence.quotaReservationId) return;
+    try {
+      await this.quotaService.release(evidence.quotaReservationId, { reason });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to release quota for evidence ${evidenceId}: ${(err as Error).message}`,
+      );
     }
   }
 
@@ -127,6 +176,11 @@ export class DisputeEvidenceProcessor extends WorkerHost {
         processingStatus: EvidenceProcessingStatus.FAILED,
         processingError: `Exhausted retries: ${error.message}`,
       });
+
+      // Final reconciliation: release the reservation. The inner process()
+      // path also releases per attempt, but only the exhaustion case is
+      // guaranteed-durable here.
+      await this.releaseQuota(evidenceId, 'evidence-attempts-exhausted');
     }
   }
 

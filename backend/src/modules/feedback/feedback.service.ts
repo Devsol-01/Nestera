@@ -35,6 +35,7 @@ export class FeedbackService {
     userId: string,
     dto: CreateFeedbackDto,
     screenshotUrl?: string,
+    options?: { screenshotReservationId?: string | null },
   ): Promise<FeedbackSubmission> {
     const feedback = this.feedbackRepo.create({
       userId,
@@ -43,6 +44,7 @@ export class FeedbackService {
       comment: dto.comment,
       screenshotUrl: screenshotUrl ?? null,
       status: FeedbackStatus.SUBMITTED,
+      quotaReservationId: options?.screenshotReservationId ?? null,
     });
     return this.feedbackRepo.save(feedback);
   }

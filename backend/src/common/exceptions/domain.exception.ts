@@ -64,3 +64,66 @@ export class ResourceNotFoundException extends DomainException {
     });
   }
 }
+
+export class ResourceNotYetAvailableException extends DomainException {
+  constructor(
+    resource: string,
+    id?: string,
+    retryAfterSeconds?: number,
+    details?: Record<string, unknown>,
+  ) {
+    super({
+      errorCode: ErrorCode.RESOURCE_NOT_YET_AVAILABLE,
+      message: id
+        ? `${resource} '${id}' is being processed and will be available shortly`
+        : `${resource} is being processed and will be available shortly`,
+      statusCode: HttpStatus.ACCEPTED,
+      details: {
+        ...details,
+        retryAfterSeconds,
+      },
+    });
+  }
+}
+
+export class ResourcePendingIndexingException extends DomainException {
+  constructor(
+    resource: string,
+    id?: string,
+    retryAfterSeconds?: number,
+    details?: Record<string, unknown>,
+  ) {
+    super({
+      errorCode: ErrorCode.RESOURCE_PENDING_INDEXING,
+      message: id
+        ? `${resource} '${id}' is pending blockchain indexing`
+        : `${resource} is pending blockchain indexing`,
+      statusCode: HttpStatus.ACCEPTED,
+      details: {
+        ...details,
+        retryAfterSeconds,
+      },
+    });
+  }
+}
+
+export class ResourceSyncInProgressException extends DomainException {
+  constructor(
+    resource: string,
+    id?: string,
+    retryAfterSeconds?: number,
+    details?: Record<string, unknown>,
+  ) {
+    super({
+      errorCode: ErrorCode.RESOURCE_SYNC_IN_PROGRESS,
+      message: id
+        ? `${resource} '${id}' sync is in progress`
+        : `${resource} sync is in progress`,
+      statusCode: HttpStatus.CONFLICT,
+      details: {
+        ...details,
+        retryAfterSeconds,
+      },
+    });
+  }
+}

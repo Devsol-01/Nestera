@@ -3,6 +3,7 @@ import {
   Post,
   Body,
   Headers,
+  Req,
   UnauthorizedException,
   Logger,
   HttpCode,
@@ -10,18 +11,24 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import { Request } from 'express';
 import { Idempotent } from '../../common/decorators/idempotent.decorator';
+import { WebhookAllowlistService } from './security/webhook-allowlist.service';
 
 @Controller('webhooks/stellar')
 export class StellarWebhookController {
   private readonly logger = new Logger(StellarWebhookController.name);
 
-  constructor(private configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly allowlistService: WebhookAllowlistService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.OK)
   @Idempotent({ ttlSeconds: 86400 })
   async handleWebhook(
+    @Req() req: Request,
     @Body() payload: any,
     @Headers('x-stellar-signature') signature?: string,
   ) {
@@ -47,6 +54,17 @@ export class StellarWebhookController {
     }
 
     this.logger.log('Webhook signature verified');
+
+    // Defense-in-depth: also enforce the DB-backed sender allowlist here
+    // (in addition to the middleware) so the controller cannot be reached
+    // without allowlisting, even if the middleware is bypassed in tests or
+    // by a future routing change. The middleware path runs first and short-
+    // circuits duplicate work in production, but this fallback guarantees
+    // the contract under any configuration.
+    await this.allowlistService.verify(req.headers, {
+      senderIdHeader: 'x-stellar-sender-id',
+    });
+
     this.processPayment(payload);
 
     return { status: 'success' };
@@ -77,9 +95,10 @@ export class StellarWebhookController {
       transaction_hash,
     } = payload;
 
-    this.logger.log(`Processing ${type}:\n      Hash: ${transaction_hash}\n      From: ${from}\n      To: ${to}\n      Amount: ${amount} ${asset_code || 'XLM'}\n      Issuer: ${asset_issuer || 'native'}\n    `);
+    this.logger.log(
+      `Processing ${type}:\n      Hash: ${transaction_hash}\n      From: ${from}\n      To: ${to}\n      Amount: ${amount} ${asset_code || 'XLM'}\n      Issuer: ${asset_issuer || 'native'}\n    `,
+    );
 
     // TODO: Add further logic here (e.g., updating database, notifying user)
   }
 }
-

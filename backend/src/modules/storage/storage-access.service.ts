@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { extname } from 'path';
@@ -10,6 +11,7 @@ import { randomUUID } from 'crypto';
 import { StorageProvider } from './providers/storage-provider.interface';
 import { LocalStorageProvider } from './providers/local-storage.provider';
 import { S3StorageProvider } from './providers/s3-storage.provider';
+import { TestModeService } from '../../common/test-mode/test-mode.service';
 
 export interface FileAccessRule {
   key: string;
@@ -26,6 +28,7 @@ export class StorageAccessService {
     private readonly configService: ConfigService,
     private readonly localProvider: LocalStorageProvider,
     private readonly s3Provider: S3StorageProvider,
+    @Optional() private readonly testModeService?: TestModeService,
   ) {
     this.signedUrlTtl = this.configService.get<number>(
       'upload.signedUrlTtlSeconds',
@@ -34,6 +37,9 @@ export class StorageAccessService {
   }
 
   getProvider(): StorageProvider {
+    if (this.testModeService?.isEnabled) {
+      return this.testModeService.storageProvider;
+    }
     const providerName =
       this.configService.get<string>('upload.provider') || 'local';
     return providerName === 's3' ? this.s3Provider : this.localProvider;
@@ -105,10 +111,16 @@ export class StorageAccessService {
     nonce: string;
     signature: string;
   }): boolean {
+    if (this.testModeService?.isEnabled) {
+      return true;
+    }
     return this.localProvider.verifySignedUrl(params);
   }
 
   readLocalFile(key: string): Buffer {
+    if (this.testModeService?.isEnabled) {
+      return this.testModeService.storageProvider.readFile(key);
+    }
     return this.localProvider.readFile(key);
   }
 

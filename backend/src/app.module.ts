@@ -12,6 +12,7 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
 import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import { AdminConfirmationInterceptor } from './common/interceptors/admin-confirmation.interceptor';
 import { AdminConfirmationFilter } from './common/filters/admin-confirmation.filter';
+import { StorageQuotaExceptionFilter } from './common/filters/storage-quota-exception.filter';
 import { TieredThrottlerGuard } from './common/guards/tiered-throttler.guard';
 import { AdminConfirmationGuard } from './common/guards/admin-confirmation.guard';
 import { CommonModule } from './common/common.module';
@@ -64,6 +65,7 @@ import { SandboxModule } from './modules/sandbox/sandbox.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { StatisticsModule } from './modules/statistics/statistics.module';
 import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module';
+import { StorageQuotaModule } from './modules/storage-quota/storage-quota.module';
 
 const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'production', 'test').required(),
@@ -148,6 +150,17 @@ const envValidationSchema = Joi.object({
   COMPRESSION_THRESHOLD: Joi.number().integer().min(0).default(1024),
   JSON_BODY_LIMIT: Joi.string().default('1mb'),
   URLENCODED_BODY_LIMIT: Joi.string().default('1mb'),
+
+  IDEMPOTENCY_CLEANUP_ENABLED: Joi.boolean().default(true),
+  IDEMPOTENCY_CLEANUP_CRON: Joi.string()
+    .regex(/^(\S+\s+){4}\S+$/)
+    .default('0 * * * *'),
+  IDEMPOTENCY_CLEANUP_BATCH_SIZE: Joi.number().integer().min(1).default(500),
+  IDEMPOTENCY_CLEANUP_SCAN_COUNT: Joi.number().integer().min(1).default(200),
+  IDEMPOTENCY_CLEANUP_LOCK_TTL_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .default(120000),
 });
 
 @Module({
@@ -342,6 +355,7 @@ const envValidationSchema = Joi.object({
     SandboxModule,
     FeedbackModule,
     CommonModule,
+    StorageQuotaModule,
     ThrottlerModule.forRoot([
       {
         name: 'default',
@@ -351,6 +365,20 @@ const envValidationSchema = Joi.object({
       {
         name: 'auth',
         ttl: 15 * 60 * 1000, // 15 minutes
+        limit: 5,
+      },
+      {
+        // OTP / 2FA verification attempts — deliberately strict to resist
+        // brute-force attacks on one-time codes.
+        name: 'otp',
+        ttl: 15 * 60 * 1000, // 15 minutes
+        limit: 3,
+      },
+      {
+        // Wallet-linking is an infrequent, sensitive operation.
+        // 5 attempts per hour per user prevents automated wallet-spam.
+        name: 'wallet-link',
+        ttl: 60 * 60 * 1000, // 1 hour
         limit: 5,
       },
       {
@@ -370,6 +398,14 @@ const envValidationSchema = Joi.object({
         name: 'vote',
         ttl: 60_000, // 1 minute
         limit: 10,
+      },
+      {
+        // Upload endpoints (avatar / KYC documents / dispute evidence /
+        // feedback screenshots). Per-tier cap is enforced by TieredThrottlerGuard;
+        // this top-level limit exists as a safety floor for anonymous traffic.
+        name: 'upload',
+        ttl: 60_000, // 1 minute
+        limit: 5,
       },
       {
         // Admin high-risk endpoints require confirmation and tight throttling.
@@ -395,6 +431,10 @@ const envValidationSchema = Joi.object({
     {
       provide: APP_FILTER,
       useClass: AdminConfirmationFilter,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: StorageQuotaExceptionFilter,
     },
     {
       provide: APP_INTERCEPTOR,
@@ -429,7 +469,11 @@ const envValidationSchema = Joi.object({
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-      .apply(CorrelationIdMiddleware, CompressionMetricsMiddleware, TenantContextMiddleware)
+      .apply(
+        CorrelationIdMiddleware,
+        CompressionMetricsMiddleware,
+        TenantContextMiddleware,
+      )
       .forRoutes('*');
   }
 }

@@ -17,6 +17,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import { ReferralsService } from './referrals.service';
 import {
   CreateReferralDto,
@@ -40,6 +41,7 @@ export class UserReferralsController {
   }
 
   @Post('code/generate')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Generate a custom referral code' })
   @ApiResponse({ status: 201, description: 'Referral code created' })
   async generateCode(@Request() req, @Body() dto: GenerateCustomCodeDto) {

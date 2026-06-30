@@ -14,6 +14,7 @@ import { LedgerTransaction } from './entities/transaction.entity';
 import { DeadLetterEvent } from './entities/dead-letter-event.entity';
 import { IndexerState } from './entities/indexer-state.entity';
 import { BlockchainReplayJob } from './entities/blockchain-replay-job.entity';
+import { MalformedBlockchainEvent } from './entities/malformed-blockchain-event.entity';
 import { MedicalClaim } from '../claims/entities/medical-claim.entity';
 import { User } from '../user/entities/user.entity';
 import { UserSubscription } from '../savings/entities/user-subscription.entity';
@@ -25,10 +26,12 @@ import { IndexerService } from './indexer.service';
 import { IndexerCheckpointService } from './indexer-checkpoint.service';
 import { BlockchainReplayService } from './blockchain-replay.service';
 import { BalanceSyncService } from './balance-sync.service';
+import { BlockchainEventParser } from './blockchain-event-parser.service';
 import { JobQueueModule } from '../job-queue/job-queue.module';
 import { EventStreamBackpressureService } from './event-stream-backpressure.service';
 import { ProtocolMetrics } from '../admin-analytics/entities/protocol-metrics.entity';
 import { TransactionsModule } from '../transactions/transactions.module';
+import { ContractEventValidatorService } from './contract-event-validator.service';
 
 @Global()
 @Module({
@@ -47,6 +50,7 @@ import { TransactionsModule } from '../transactions/transactions.module';
       DeadLetterEvent,
       IndexerState,
       BlockchainReplayJob,
+      MalformedBlockchainEvent,
       User,
       UserSubscription,
       SavingsProduct,
@@ -71,6 +75,7 @@ import { TransactionsModule } from '../transactions/transactions.module';
     YieldHandler,
     BalanceSyncService,
     EventStreamBackpressureService,
+    ContractEventValidatorService,
   ],
   exports: [
     StellarService,
@@ -85,6 +90,7 @@ import { TransactionsModule } from '../transactions/transactions.module';
     YieldHandler,
     BalanceSyncService,
     EventStreamBackpressureService,
+    ContractEventValidatorService,
   ],
 })
 export class BlockchainModule {}

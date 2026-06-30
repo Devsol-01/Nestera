@@ -14,6 +14,7 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { EnhancedExceptionFilter } from './common/filters/enhanced-exception.filter';
 import { ErrorCodeRegistry } from './common/services/error-code-registry.service';
+import { ContractValidationService } from './common/services/contract-validation.service';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import {
   VersioningMiddleware,

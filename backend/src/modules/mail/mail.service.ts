@@ -1,15 +1,38 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
+import { TestModeService } from '../../common/test-mode/test-mode.service';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
 
-  constructor(private readonly mailerService: MailerService) {}
+  constructor(
+    private readonly mailerService: MailerService,
+    @Optional() private readonly testModeService?: TestModeService,
+  ) {}
+
+  private async sendMailWithTestMode(
+    options: Record<string, unknown>,
+  ): Promise<void> {
+    if (this.testModeService?.isEnabled) {
+      this.testModeService.captureEmail({
+        to: options.to as string,
+        subject: options.subject as string,
+        text: options.text as string | undefined,
+        template: options.template as string | undefined,
+        context: options.context as Record<string, unknown> | undefined,
+        attachments: options.attachments as
+          | { filename: string; content: Buffer }[]
+          | undefined,
+      });
+      return;
+    }
+    await this.mailerService.sendMail(options);
+  }
 
   async sendWelcomeEmail(userEmail: string, name: string): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      await this.sendMailWithTestMode({
         to: userEmail,
         subject: 'Welcome to Nestera!',
         template: './welcome',
@@ -29,7 +52,7 @@ export class MailService {
     amount: string,
   ): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      await this.sendMailWithTestMode({
         to: userEmail,
         subject: 'Account Sweep Completed',
         template: './sweep-completed',
@@ -55,7 +78,7 @@ export class MailService {
     netAmount: string,
   ): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      await this.sendMailWithTestMode({
         to: userEmail,
         subject: 'Withdrawal Request Completed',
         template: './withdrawal-completed',
@@ -83,7 +106,7 @@ export class MailService {
     notes?: string,
   ): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      await this.sendMailWithTestMode({
         to: userEmail,
         subject: `Medical Claim ${status}`,
         template: './claim-status',
@@ -110,7 +133,7 @@ export class MailService {
     percentage: number,
   ): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      await this.sendMailWithTestMode({
         to: userEmail,
         subject: `Congrats — ${percentage}% of your goal achieved!`,
         template: './goal-milestone',
@@ -137,7 +160,7 @@ export class MailService {
     productId: string,
   ): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      await this.sendMailWithTestMode({
         to: userEmail,
         subject: 'A savings product you waited for is available',
         template: './waitlist-available',
@@ -161,7 +184,7 @@ export class MailService {
     message: string,
   ): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      await this.sendMailWithTestMode({
         to: userEmail,
         subject: 'Savings product alert',
         template: './generic-notification',
@@ -187,7 +210,7 @@ export class MailService {
     netAmount: string,
   ): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      await this.sendMailWithTestMode({
         to: userEmail,
         subject: 'Withdrawal Request Approved',
         template: './withdrawal-approved',
@@ -213,7 +236,7 @@ export class MailService {
     reason: string,
   ): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      await this.sendMailWithTestMode({
         to: userEmail,
         subject: 'Withdrawal Request Rejected',
         template: './withdrawal-rejected',
@@ -233,7 +256,7 @@ export class MailService {
 
   async sendRawMail(to: string, subject: string, text: string): Promise<void> {
     try {
-      await this.mailerService.sendMail({ to, subject, text });
+      await this.sendMailWithTestMode({ to, subject, text });
     } catch (error) {
       this.logger.error(`Failed to send raw email to ${to}`, error);
     }
@@ -246,7 +269,7 @@ export class MailService {
     message: string,
   ): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      await this.sendMailWithTestMode({
         to: userEmail,
         subject,
         template: './generic-notification',
@@ -271,7 +294,7 @@ export class MailService {
     points: number,
   ): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      await this.sendMailWithTestMode({
         to: userEmail,
         subject: `You earned the "${badgeName}" badge!`,
         template: './badge-earned',
@@ -299,7 +322,7 @@ export class MailService {
     filename: string,
   ): Promise<void> {
     try {
-      await this.mailerService.sendMail({
+      await this.sendMailWithTestMode({
         to: userEmail,
         subject: `Your ${reportType.replace(/_/g, ' ')} report — ${periodLabel}`,
         template: './savings-alert',

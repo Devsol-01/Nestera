@@ -7,6 +7,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import { DelegationResponseDto } from './dto/delegation-response.dto';
 import { VotingPowerResponseDto } from './dto/voting-power-response.dto';
 import { DelegateVoteDto } from './dto/delegate-vote.dto';
@@ -58,6 +59,7 @@ export class GovernanceController {
   // ── Delegation (#542) ──────────────────────────────────────────────────────
 
   @Post('governance/delegate')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Delegate voting power to a trusted address' })
   @ApiResponse({
     status: 201,
@@ -76,6 +78,7 @@ export class GovernanceController {
   }
 
   @Delete('governance/delegate')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Revoke current voting power delegation' })
   @ApiResponse({ status: 200, description: 'Delegation revoked' })
   revokeDelegate(@CurrentUser() user: { id: string }): Promise<void> {

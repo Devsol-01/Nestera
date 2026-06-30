@@ -79,12 +79,15 @@ describe('JobQueueService', () => {
       expect(notificationQueue.add).toHaveBeenCalledWith(
         'send-notification',
         data,
-        undefined,
+        expect.objectContaining({
+          jobId: 'send-notification--user-1-sweep_completed',
+        }),
       );
       expect(result.id).toBe('job-1');
     });
 
     it('should propagate correlationId in job data', async () => {
+    it('should return existing job on duplicate enqueue', async () => {
       const data = {
         userId: 'user-1',
         type: 'sweep_completed',
@@ -100,6 +103,28 @@ describe('JobQueueService', () => {
         expect.objectContaining({ correlationId }),
         undefined,
       );
+      const duplicateError = new Error('Job already exists');
+      duplicateError.name = 'JobAlreadyExistsError';
+      const existingJob = { id: 'existing-job', data };
+
+      notificationQueue.add.mockRejectedValueOnce(duplicateError);
+      notificationQueue.getJob.mockResolvedValueOnce(existingJob);
+
+      const result = await service.addNotificationJob(data, {
+        idempotencyKey: 'idem-123',
+      });
+
+      expect(notificationQueue.add).toHaveBeenCalledWith(
+        'send-notification',
+        data,
+        expect.objectContaining({
+          jobId: 'send-notification--user-1-sweep_completed--idem-123',
+        }),
+      );
+      expect(notificationQueue.getJob).toHaveBeenCalledWith(
+        'send-notification--user-1-sweep_completed--idem-123',
+      );
+      expect(result).toBe(existingJob);
     });
   });
 
@@ -117,7 +142,9 @@ describe('JobQueueService', () => {
       expect(emailQueue.add).toHaveBeenCalledWith(
         'send-email',
         data,
-        undefined,
+        expect.objectContaining({
+          jobId: 'send-email--user-test-com-Welcome-welcome',
+        }),
       );
       expect(result.id).toBe('job-1');
     });
@@ -191,7 +218,9 @@ describe('JobQueueService', () => {
       expect(reportQueue.add).toHaveBeenCalledWith(
         'generate-report',
         data,
-        undefined,
+        expect.objectContaining({
+          jobId: 'generate-report--user-1-monthly-summary',
+        }),
       );
     });
 

@@ -23,13 +23,18 @@ export class ValidationExceptionFilter implements ExceptionFilter {
 
     const exceptionResponse = exception.getResponse() as
       | string
-      | { message: string | string[] | ClassValidatorError[]; error?: string };
+      | {
+          message: string | string[] | ClassValidatorErrorLike[];
+          error?: string;
+        };
 
     const statusCode = exception.getStatus();
     const correlationId = (request as any).correlationId;
 
     let formattedErrors: ValidationIssue[] | string[];
     let message: string;
+    let hint: string | undefined;
+    let field: string | undefined;
 
     if (typeof exceptionResponse === 'string') {
       message = exceptionResponse;
@@ -51,9 +56,21 @@ export class ValidationExceptionFilter implements ExceptionFilter {
           ? exceptionResponse.message
           : 'Bad Request';
       formattedErrors = [message];
+
+      // Surface structured hint/field metadata (e.g., from cursor decoding
+      // errors) so clients receive actionable guidance in a single response.
+      // See related DTOs in src/common/dto/page-options.dto.ts and the
+      // cursor helper in src/common/helpers/cursor-pagination.helper.ts.
+      const structured = exceptionResponse as unknown as {
+        hint?: unknown;
+        field?: unknown;
+      };
+      hint = typeof structured.hint === 'string' ? structured.hint : undefined;
+      field =
+        typeof structured.field === 'string' ? structured.field : undefined;
     }
 
-    const body = {
+    const body: Record<string, unknown> = {
       success: false,
       statusCode,
       error: 'Validation Error',
@@ -64,11 +81,13 @@ export class ValidationExceptionFilter implements ExceptionFilter {
       correlationId,
     };
 
+    if (hint) body.hint = hint;
+    if (field) body.field = field;
+
     this.logger.debug(
       `Validation error on ${request.method} ${request.url}: ${JSON.stringify(formattedErrors)}`,
     );
 
     response.status(statusCode).json(body);
   }
-
 }

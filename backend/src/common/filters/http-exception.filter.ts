@@ -129,6 +129,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
         docsUrl: exception.docsUrl,
       };
 
+      // Add Retry-After header for eventual consistency scenarios
+      if (exception.details && typeof exception.details === 'object') {
+        const retryAfterSeconds = (exception.details as Record<string, unknown>)
+          .retryAfterSeconds as number | undefined;
+        if (retryAfterSeconds && !isNaN(retryAfterSeconds)) {
+          response.setHeader('Retry-After', Math.ceil(retryAfterSeconds));
+        }
+      }
+
       this.logError(request, status, exception);
       return response.status(status).json(body);
     }

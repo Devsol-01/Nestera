@@ -7,6 +7,8 @@ import {
   Inject,
   Optional,
 } from '@nestjs/common';
+import { ResourceNotFoundException, ResourcePendingIndexingException } from '../../common/exceptions/domain.exception';
+import { EventualConsistencyService } from '../../common/services/eventual-consistency.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { Cache } from 'cache-manager';
@@ -58,6 +60,8 @@ import {
   AuditResourceType,
 } from '../../common/entities/audit-log.entity';
 import { TransactionStateMachineService } from '../transactions/transaction-state-machine.service';
+import { DistributedTracingService } from '../apm/distributed-tracing.service';
+import { TraceSpan } from '../../common/decorators/trace-span.decorator';
 
 export type SavingsGoalProgress = GoalProgressDto;
 
@@ -133,9 +137,12 @@ export class SavingsService {
     private readonly configService: ConfigService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly auditLogService: AuditLogService,
+    @Optional() readonly tracingService?: DistributedTracingService,
     @Optional() private readonly eventEmitter?: EventEmitter2,
+    @Optional() private readonly eventualConsistencyService?: EventualConsistencyService,
   ) {}
 
+  @TraceSpan('savings.createProduct')
   async createProduct(dto: CreateProductDto): Promise<SavingsProduct> {
     if (dto.minAmount > dto.maxAmount) {
       throw new BadRequestException(
@@ -164,6 +171,7 @@ export class SavingsService {
     return savedProduct;
   }
 
+  @TraceSpan('savings.updateProduct')
   async updateProduct(
     id: string,
     dto: UpdateProductDto,
@@ -251,6 +259,7 @@ export class SavingsService {
     return updatedProduct;
   }
 
+  @TraceSpan('savings.findAllProducts')
   async findAllProducts(
     activeOnly = false,
     sort?: 'apy' | 'tvl',
@@ -301,17 +310,24 @@ export class SavingsService {
     } else if (sort === 'tvl') {
       dtos.sort((a, b) => b.tvlAmount - a.tvlAmount);
     } else {
-      // Default sort by createdAt DESC
-      dtos.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      // Default sort: createdAt DESC with id DESC as a tie-breaker to ensure
+      // stable, deterministic ordering when multiple products share the same
+      // createdAt timestamp (e.g. seeded data or concurrent inserts).
+      dtos.sort((a, b) => {
+        const timeDiff = b.createdAt.getTime() - a.createdAt.getTime();
+        if (timeDiff !== 0) return timeDiff;
+        return b.id < a.id ? -1 : b.id > a.id ? 1 : 0;
+      });
     }
 
     return dtos;
   }
 
+  @TraceSpan('savings.findOneProduct')
   async findOneProduct(id: string): Promise<SavingsProduct> {
     const product = await this.productRepository.findOneBy({ id });
     if (!product) {
-      throw new NotFoundException(`Savings product ${id} not found`);
+      throw new ResourceNotFoundException('Savings product', id);
     }
     return product;
   }
@@ -320,6 +336,7 @@ export class SavingsService {
    * #533 / #593 — Compare up to 5 savings products side-by-side.
    * Results are cached per unique sorted product-ID set for 10 minutes.
    */
+  @TraceSpan('savings.compareProducts')
   async compareProducts(
     productIds: string[],
     amount?: number,
@@ -372,6 +389,7 @@ export class SavingsService {
     return response;
   }
 
+  @TraceSpan('savings.findProductWithLiveData')
   async findProductWithLiveData(id: string): Promise<{
     product: SavingsProduct;
     totalAssets: number;
@@ -400,6 +418,7 @@ export class SavingsService {
     return { product, totalAssets, capacity };
   }
 
+  @TraceSpan('savings.migrateSubscriptionsToVersion')
   async migrateSubscriptionsToVersion(
     sourceProductId: string,
     targetProductId: string,
@@ -450,6 +469,7 @@ export class SavingsService {
     return { migratedCount: subscriptions.length, targetProduct };
   }
 
+  @TraceSpan('savings.subscribe')
   async subscribe(
     userId: string,
     productId: string,
@@ -562,6 +582,7 @@ export class SavingsService {
     return savedSubscription;
   }
 
+  @TraceSpan('savings.findMySubscriptions')
   async findMySubscriptions(
     userId: string,
   ): Promise<UserSubscriptionWithLiveBalance[]> {
@@ -630,6 +651,7 @@ export class SavingsService {
     );
   }
 
+  @TraceSpan('savings.getProductMetrics')
   async getProductMetrics(
     id: string,
     granularity: MetricsGranularity = MetricsGranularity.DAILY,
@@ -841,6 +863,7 @@ export class SavingsService {
     );
   }
 
+  @TraceSpan('savings.getProductCapacitySnapshot')
   async getProductCapacitySnapshot(
     productId: string,
   ): Promise<ProductCapacitySnapshot> {
@@ -905,11 +928,15 @@ export class SavingsService {
     };
   }
 
+  @TraceSpan('savings.findMyGoals')
   async findMyGoals(userId: string): Promise<SavingsGoalProgress[]> {
     const [goals, user, subscriptions] = await Promise.all([
       this.goalRepository.find({
         where: { userId },
-        order: { createdAt: 'DESC' },
+        // Stable sort: primary key createdAt DESC, tie-breaker id DESC so that
+        // concurrent inserts at the same millisecond never cause duplicate/missing
+        // items across paginated pages.
+        order: { createdAt: 'DESC', id: 'DESC' },
       }),
       this.userRepository.findOne({
         where: { id: userId },
@@ -958,6 +985,7 @@ export class SavingsService {
     return progressList;
   }
 
+  @TraceSpan('savings.createGoal')
   async createGoal(
     userId: string,
     goalName: string,
@@ -993,6 +1021,7 @@ export class SavingsService {
     return saved;
   }
 
+  @TraceSpan('savings.updateGoal')
   async updateGoal(
     goalId: string,
     userId: string,
@@ -1018,6 +1047,7 @@ export class SavingsService {
     return await this.goalRepository.save(goal);
   }
 
+  @TraceSpan('savings.deleteGoal')
   async deleteGoal(goalId: string, userId: string): Promise<void> {
     const goal = await this.goalRepository.findOne({
       where: { id: goalId, userId },
@@ -1032,6 +1062,7 @@ export class SavingsService {
     await this.goalRepository.remove(goal);
   }
 
+  @TraceSpan('savings.transferToGoal')
   async transferToGoal(
     userId: string,
     goalId: string,
@@ -1088,6 +1119,7 @@ export class SavingsService {
     });
   }
 
+  @TraceSpan('savings.createWithdrawalRequest')
   async createWithdrawalRequest(
     userId: string,
     subscriptionId: string,

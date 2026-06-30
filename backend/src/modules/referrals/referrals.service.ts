@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ConflictException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
@@ -18,6 +19,12 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomBytes } from 'crypto';
 import { ReferralFraudDetectionService } from './referral-fraud-detection.service';
 import { ReferralFraudEvaluationContext } from './referral-fraud.types';
+import { DistributedTracingService } from '../apm/distributed-tracing.service';
+import { TraceSpan } from '../../common/decorators/trace-span.decorator';
+import {
+  REFERRAL_COMPLETED_EVENT,
+  ReferralCompletedEventPayloadV1,
+} from './referral-events.types';
 
 @Injectable()
 export class ReferralsService {
@@ -34,6 +41,7 @@ export class ReferralsService {
     private userRepository: Repository<User>,
     private eventEmitter: EventEmitter2,
     private readonly fraudDetectionService: ReferralFraudDetectionService,
+    @Optional() readonly tracingService?: DistributedTracingService,
   ) {}
 
   /**
@@ -76,6 +84,7 @@ export class ReferralsService {
   /**
    * Generate a unique referral code for a user
    */
+  @TraceSpan('referrals.generateReferralCode')
   async generateReferralCode(
     userId: string,
     campaignId?: string,
@@ -123,6 +132,7 @@ export class ReferralsService {
   /**
    * Apply a referral code during user signup
    */
+  @TraceSpan('referrals.applyReferralCode')
   async applyReferralCode(
     referralCode: string,
     refereeId: string,
@@ -222,6 +232,7 @@ export class ReferralsService {
   /**
    * Check and complete referral when user makes first deposit
    */
+  @TraceSpan('referrals.checkAndCompleteReferral')
   async checkAndCompleteReferral(
     userId: string,
     depositAmount: string,
@@ -300,13 +311,18 @@ export class ReferralsService {
       { depositAmount },
     );
 
-    // Emit event for reward distribution
-    this.eventEmitter.emit('referral.completed', {
+    // Emit versioned referral.completed event for backward compatible consumers
+    const completedEvent: ReferralCompletedEventPayloadV1 = {
+      eventType: REFERRAL_COMPLETED_EVENT,
+      schemaVersion: 1,
       referralId: referral.id,
       referrerId: referral.referrerId,
-      refereeId: referral.refereeId,
+      refereeId: referral.refereeId!,
       campaignId: referral.campaignId,
-    });
+      completedAt: referral.completedAt?.toISOString(),
+    };
+
+    this.eventEmitter.emit(REFERRAL_COMPLETED_EVENT, completedEvent);
 
     this.logger.log(`Referral ${referral.id} completed`);
   }
@@ -314,6 +330,7 @@ export class ReferralsService {
   /**
    * Distribute rewards for completed referral
    */
+  @TraceSpan('referrals.distributeRewards')
   async distributeRewards(referralId: string): Promise<void> {
     // Check idempotency
     const alreadyProcessed = await this.hasEventBeenProcessed(
@@ -419,6 +436,7 @@ export class ReferralsService {
   /**
    * Get referral statistics for a user (dashboard format per issue #528)
    */
+  @TraceSpan('referrals.getReferralStats')
   async getReferralStats(userId: string) {
     const referrals = await this.referralRepository.find({
       where: { referrerId: userId },
@@ -475,6 +493,7 @@ export class ReferralsService {
   /**
    * Get detailed referral list for a user (history with conversion funnel)
    */
+  @TraceSpan('referrals.getUserReferrals')
   async getUserReferrals(userId: string) {
     return this.referralRepository.find({
       where: { referrerId: userId },
@@ -486,6 +505,7 @@ export class ReferralsService {
   /**
    * Generate a custom referral code for a user (issue #528)
    */
+  @TraceSpan('referrals.generateCustomCode')
   async generateCustomCode(
     userId: string,
     code?: string,
@@ -527,6 +547,7 @@ export class ReferralsService {
   /**
    * Get leaderboard of top referrers (issue #528)
    */
+  @TraceSpan('referrals.getLeaderboard')
   async getLeaderboard(limit = 10): Promise<
     Array<{
       rank: number;

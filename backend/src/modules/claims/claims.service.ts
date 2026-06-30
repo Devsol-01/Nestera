@@ -5,6 +5,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MedicalClaim, ClaimStatus } from './entities/medical-claim.entity';
 import { CreateClaimDto } from './dto/create-claim.dto';
 import { HospitalIntegrationService } from '../hospital-integration/hospital-integration.service';
+import { ResourceNotFoundException } from '../../common/exceptions/domain.exception';
+import { EventualConsistencyService } from '../../common/services/eventual-consistency.service';
 
 @Injectable()
 export class ClaimsService {
@@ -15,6 +17,7 @@ export class ClaimsService {
     private readonly claimsRepository: Repository<MedicalClaim>,
     private readonly hospitalIntegrationService: HospitalIntegrationService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly eventualConsistencyService: EventualConsistencyService,
   ) {}
 
   async createClaim(createClaimDto: CreateClaimDto): Promise<MedicalClaim> {
@@ -28,7 +31,12 @@ export class ClaimsService {
   }
 
   async findAll(): Promise<MedicalClaim[]> {
-    return await this.claimsRepository.find({ order: { createdAt: 'DESC' } });
+    // Stable sort: primary key createdAt DESC, tie-breaker id DESC so that
+    // concurrent inserts at the same millisecond never cause duplicate/missing
+    // items across paginated pages.
+    return await this.claimsRepository.find({
+      order: { createdAt: 'DESC', id: 'DESC' },
+    });
   }
 
   async findOne(id: string): Promise<MedicalClaim | null> {
@@ -39,7 +47,7 @@ export class ClaimsService {
     const claim = await this.findOne(claimId);
 
     if (!claim) {
-      throw new Error('Claim not found');
+      throw new ResourceNotFoundException('Claim', claimId);
     }
 
     this.logger.log(

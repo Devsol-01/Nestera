@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -43,6 +44,8 @@ import {
   AuditAction,
   AuditResourceType,
 } from '../../common/entities/audit-log.entity';
+import { DistributedTracingService } from '../../modules/apm/distributed-tracing.service';
+import { TraceSpan } from '../../common/decorators/trace-span.decorator';
 
 /** Timelock duration in milliseconds (24 hours) */
 const TIMELOCK_DURATION_MS = 24 * 60 * 60 * 1000;
@@ -80,8 +83,10 @@ export class GovernanceService {
     @InjectRepository(Delegation)
     private readonly delegationRepo: Repository<Delegation>,
     private readonly auditLogService: AuditLogService,
+    @Optional() readonly tracingService?: DistributedTracingService,
   ) {}
 
+  @TraceSpan('governance.createProposal')
   async createProposal(
     userId: string,
     dto: CreateProposalDto,
@@ -214,6 +219,7 @@ export class GovernanceService {
     return this.toProposalResponse(savedProposal, currentLedger);
   }
 
+  @TraceSpan('governance.editProposal')
   async editProposal(
     userId: string,
     proposalId: string,
@@ -288,6 +294,7 @@ export class GovernanceService {
     return this.toProposalResponse(savedProposal, currentLedger);
   }
 
+  @TraceSpan('governance.getProposals')
   async getProposals(status?: ProposalStatus): Promise<ProposalListItemDto[]> {
     const where = status ? { status } : {};
     const proposals = await this.proposalRepo.find({
@@ -400,6 +407,7 @@ export class GovernanceService {
     return { votingPower: `${formattedVotingPower} NST` };
   }
 
+  @TraceSpan('governance.castVote')
   async castVote(
     userId: string,
     onChainId: number,
@@ -554,6 +562,7 @@ export class GovernanceService {
     };
   }
 
+  @TraceSpan('governance.queueProposal')
   async queueProposal(
     proposalId: string,
     userId: string,
@@ -605,6 +614,7 @@ export class GovernanceService {
     return this.toProposalResponse(proposal, currentLedger);
   }
 
+  @TraceSpan('governance.executeProposal')
   async executeProposal(
     proposalId: string,
     userId: string,
@@ -660,6 +670,7 @@ export class GovernanceService {
     return this.toProposalResponse(proposal, currentLedger);
   }
 
+  @TraceSpan('governance.cancelProposal')
   async cancelProposal(
     proposalId: string,
     userId: string,
@@ -707,6 +718,7 @@ export class GovernanceService {
 
   // ── Lifecycle helpers ─────────────────────────────────────────────────────
 
+  @TraceSpan('governance.finalizeVoting')
   async finalizeVoting(
     proposalId: string,
     userId: string,
@@ -742,6 +754,7 @@ export class GovernanceService {
 
   // ── Delegation (#542) ──────────────────────────────────────────────────────
 
+  @TraceSpan('governance.delegate')
   async delegate(
     userId: string,
     delegateAddress: string,
@@ -773,6 +786,7 @@ export class GovernanceService {
     return { transactionHash: txHash };
   }
 
+  @TraceSpan('governance.revokeDelegate')
   async revokeDelegate(userId: string): Promise<void> {
     const user = await this.userService.findById(userId);
     if (!user.publicKey)

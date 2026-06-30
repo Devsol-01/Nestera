@@ -32,6 +32,12 @@ import { Role } from '../../common/enums/role.enum';
 import { StorageService } from '../storage/storage.service';
 import { FeedbackService } from './feedback.service';
 import {
+  StorageQuotaService,
+  QuotaReservation,
+} from '../storage-quota/storage-quota.service';
+import { QuotaUploadKind } from '../storage-quota/entities/storage-quota-ledger.entity';
+import { Throttle } from '@nestjs/throttler';
+import {
   CreateFeedbackDto,
   UpdateFeedbackStatusDto,
   FeedbackQueryDto,
@@ -59,6 +65,7 @@ export class FeedbackController {
   constructor(
     private readonly feedbackService: FeedbackService,
     private readonly storageService: StorageService,
+    private readonly quotaService: StorageQuotaService,
   ) {}
 
   @Post()
@@ -78,6 +85,7 @@ export class FeedbackController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.CREATED)
+  @Throttle({ upload: { limit: 10, ttl: 60_000 } })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -109,8 +117,45 @@ export class FeedbackController {
     )
     file: any,
   ): Promise<FeedbackSubmission> {
-    const screenshotUrl = await this.storageService.saveFile(file);
-    return this.feedbackService.submit(user.id, dto, screenshotUrl);
+    // Reserve quota before writing the file. Screenshots have no
+    // background processing, so commit immediately after the write.
+    const reservation: QuotaReservation = await this.quotaService.reserve(
+      user.id,
+      file.size,
+      {
+        uploadKind: QuotaUploadKind.FEEDBACK_SCREENSHOT,
+        reason: 'feedback-screenshot',
+      },
+    );
+
+    let screenshotUrl: string;
+    try {
+      screenshotUrl = await this.storageService.saveFile(file);
+    } catch (err) {
+      await this.quotaService.release(reservation.reservationId, {
+        reason: 'storage-write-failed',
+      });
+      throw err;
+    }
+
+    try {
+      const submission = await this.feedbackService.submit(
+        user.id,
+        dto,
+        screenshotUrl,
+        { screenshotReservationId: reservation.reservationId },
+      );
+      await this.quotaService.commit(reservation.reservationId, {
+        finalBytes: file.size,
+        reason: 'feedback-screenshot-stored',
+      });
+      return submission;
+    } catch (err) {
+      await this.quotaService.release(reservation.reservationId, {
+        reason: 'feedback-record-failed',
+      });
+      throw err;
+    }
   }
 
   @Get('me')

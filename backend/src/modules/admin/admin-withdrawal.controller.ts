@@ -20,6 +20,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { AdminHighRisk } from '../../common/decorators/admin-high-risk.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import { User } from '../user/entities/user.entity';
 import { AdminWithdrawalService } from './admin-withdrawal.service';
 import { PageOptionsDto } from '../../common/dto/page-options.dto';
@@ -67,6 +68,7 @@ export class AdminWithdrawalController {
 
   @Post(':id/approve')
   @AdminHighRisk()
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary: 'Approve a pending withdrawal request',
     description: 'High-risk operation. Requires confirmation on first attempt.',
@@ -87,6 +89,7 @@ export class AdminWithdrawalController {
 
   @Post(':id/reject')
   @AdminHighRisk()
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary: 'Reject a pending withdrawal request',
     description: 'High-risk operation. Requires confirmation on first attempt.',

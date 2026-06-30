@@ -19,6 +19,7 @@ describe('ReferralsService', () => {
   let referralRepository: Repository<Referral>;
   let campaignRepository: Repository<ReferralCampaign>;
   let userRepository: Repository<User>;
+  let processedReferralEventRepository: Repository<ProcessedReferralEvent>;
   let eventEmitter: EventEmitter2;
   let fraudDetectionService: jest.Mocked<ReferralFraudDetectionService>;
 
@@ -106,6 +107,9 @@ describe('ReferralsService', () => {
     campaignRepository = module.get<Repository<ReferralCampaign>>(
       getRepositoryToken(ReferralCampaign),
     );
+    processedReferralEventRepository = module.get<
+      Repository<ProcessedReferralEvent>
+    >(getRepositoryToken(ProcessedReferralEvent));
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
     eventEmitter = module.get<EventEmitter2>(EventEmitter2);
   });
@@ -196,6 +200,44 @@ describe('ReferralsService', () => {
       await expect(
         service.applyReferralCode('ABC12345', 'user-1'),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('checkAndCompleteReferral', () => {
+    it('should emit a versioned referral.completed event when a referral is completed', async () => {
+      const referral = {
+        ...mockReferral,
+        refereeId: 'user-2',
+        status: ReferralStatus.PENDING,
+        referrerId: 'user-1',
+        campaignId: null,
+      };
+
+      jest
+        .spyOn(processedReferralEventRepository, 'findOne')
+        .mockResolvedValue(null);
+      jest
+        .spyOn(referralRepository, 'findOne')
+        .mockResolvedValue(referral as any);
+      jest.spyOn(referralRepository, 'save').mockResolvedValue({
+        ...referral,
+        status: ReferralStatus.COMPLETED,
+        completedAt: new Date(),
+      } as any);
+      const eventSpy = jest.spyOn(eventEmitter, 'emit');
+
+      await service.checkAndCompleteReferral('user-2', '5');
+
+      expect(eventSpy).toHaveBeenCalledWith(
+        'referral.completed',
+        expect.objectContaining({
+          eventType: 'referral.completed',
+          schemaVersion: 1,
+          referralId: 'referral-1',
+          referrerId: 'user-1',
+          refereeId: 'user-2',
+        }),
+      );
     });
   });
 

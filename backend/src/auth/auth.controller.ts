@@ -83,6 +83,7 @@ export class AuthController {
    *  - publicKey must not already be linked to ANY account (returns 409 if so)
    */
   @Post('link-wallet')
+  @Throttle({ 'wallet-link': { limit: 5, ttl: 60 * 60 * 1000 } })
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -113,6 +114,7 @@ export class AuthController {
   // --- Two-Factor Authentication Endpoints ---
 
   @Post('2fa/enable')
+  @Throttle({ otp: { limit: 3, ttl: 15 * 60 * 1000 } })
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
@@ -131,6 +133,7 @@ export class AuthController {
   }
 
   @Post('2fa/verify')
+  @Throttle({ otp: { limit: 3, ttl: 15 * 60 * 1000 } })
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
@@ -170,6 +173,7 @@ export class AuthController {
   }
 
   @Post('2fa/disable')
+  @Throttle({ otp: { limit: 3, ttl: 15 * 60 * 1000 } })
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
@@ -181,6 +185,7 @@ export class AuthController {
   }
 
   @Post('2fa/admin-disable')
+  @Throttle({ otp: { limit: 3, ttl: 15 * 60 * 1000 } })
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()

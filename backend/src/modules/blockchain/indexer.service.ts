@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -16,6 +16,8 @@ import { DistributedLockService } from '../../common/distributed-lock/distribute
 import { EventStreamBackpressureService } from './event-stream-backpressure.service';
 import { JobQueueService } from '../job-queue/job-queue.service';
 import { INDEXER_STREAM_SAVINGS } from './indexer-checkpoint.utils';
+import { DistributedTracingService } from '../apm/distributed-tracing.service';
+import { TraceSpan } from '../../common/decorators/trace-span.decorator';
 
 /** Shape of a raw Soroban event as returned by the RPC. */
 export interface SorobanEvent {
@@ -53,6 +55,7 @@ export class IndexerService implements OnModuleInit {
     private readonly lockService: DistributedLockService,
     private readonly backpressureService: EventStreamBackpressureService,
     private readonly jobQueueService: JobQueueService,
+    @Optional() readonly tracingService?: DistributedTracingService,
   ) {
     this.lockTtlMs = this.configService.get<number>(
       'distributedLock.indexerTtlMs',
@@ -71,6 +74,7 @@ export class IndexerService implements OnModuleInit {
 
   @ShutdownTrackedTask()
   @Cron(CronExpression.EVERY_5_SECONDS)
+  @TraceSpan('indexer.runIndexerCycle')
   async runIndexerCycle(): Promise<void> {
     if (!this.indexerState) return;
 
@@ -143,6 +147,7 @@ export class IndexerService implements OnModuleInit {
   /**
    * Process events for replay or manual catch-up. Caller must hold replay lock.
    */
+  @TraceSpan('indexer.processEventsForReplay')
   async processEventsForReplay(
     events: SorobanEvent[],
     options: { skipCheckpoint?: boolean } = {},
@@ -175,6 +180,7 @@ export class IndexerService implements OnModuleInit {
     return { processed, failed, skipped };
   }
 
+  @TraceSpan('indexer.fetchEventsFromRange')
   async fetchEventsFromRange(
     startLedger: number,
     endLedger?: number,

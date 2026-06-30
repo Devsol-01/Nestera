@@ -54,6 +54,14 @@ export class FeedbackSubmission {
   @Column({ nullable: true })
   screenshotUrl: string | null;
 
+  /**
+   * Token returned by {@link StorageQuotaService.reserve} when the
+   * screenshot was accepted. Persisted so deletion of the feedback row
+   * can refund quota via {@link StorageQuotaService.releaseByUpload}.
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  quotaReservationId: string | null;
+
   @Column({ nullable: true, type: 'text' })
   adminNotes: string | null;
 

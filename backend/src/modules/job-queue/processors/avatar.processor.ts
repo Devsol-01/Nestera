@@ -12,6 +12,7 @@ import {
 import { AvatarJobData } from '../job-queue.service';
 import { StorageService } from '../../storage/storage.service';
 import { User } from '../../user/entities/user.entity';
+import { StorageQuotaService } from '../../storage-quota/storage-quota.service';
 
 const AVATAR_SIZE = 256;
 const THUMBNAIL_SIZE = 64;
@@ -26,6 +27,7 @@ export class AvatarProcessor extends WorkerHost {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly storageService: StorageService,
+    private readonly quotaService: StorageQuotaService,
   ) {
     super();
   }
@@ -55,6 +57,12 @@ export class AvatarProcessor extends WorkerHost {
         processingError: null,
       });
 
+      // Reconcile the quota ledger against actual stored bytes. The avatar
+      // pipeline deletes the raw upload and replaces it with processed +
+      // thumbnail images, so the final on-disk size is typically smaller
+      // than the original reservation.
+      await this.reconcileQuota(uploadId);
+
       this.logger.log(
         `${correlationPrefix}Avatar job ${job.id} completed — uploadId=${uploadId} processedUrl=${processedUrl}`,
       );
@@ -71,7 +79,87 @@ export class AvatarProcessor extends WorkerHost {
         processingError: errMsg,
       });
 
+      // Free the reserved quota so the user isn't permanently blocked.
+      // If the worker has already moved on to retry attempts, this is
+      // called again on the final attempt via onFailed().
+      await this.releaseQuota(uploadId, 'avatar-process-failed');
+
       throw error;
+    }
+  }
+
+  /**
+   * Commit the reservation with the actual byte count of the processed
+   * artifacts. Reads the freshly written files where possible so the
+   * ledger stays accurate even if images are aggressively re-encoded.
+   * Falls back to the original `fileSize` if size recovery fails, so a
+   * failed measurement never blocks the reconciliation path.
+   */
+  private async reconcileQuota(uploadId: string): Promise<void> {
+    const upload = await this.avatarUploadRepository.findOne({
+      where: { id: uploadId },
+    });
+    if (!upload || !upload.quotaReservationId) return;
+
+    let measured = 0;
+    try {
+      const processedUrl = upload.processedUrl ?? '';
+      const thumbUrl = (upload.processingMetadata as any)?.thumbnailUrl as
+        | string
+        | undefined;
+      measured =
+        this.measureFileLength(processedUrl) + this.measureFileLength(thumbUrl);
+    } catch (err) {
+      this.logger.warn(
+        `Could not measure final avatar bytes for ${uploadId}: ${(err as Error).message}; using estimated size`,
+      );
+    }
+
+    // Never fall back to the raw upload size: by the time we get here,
+    // `processImage` has already deleted the raw upload. Use a
+    // conservative 20%-of-raw estimate (capped by raw) as a floor.
+    const finalBytes =
+      measured > 0
+        ? measured
+        : Math.min(
+            upload.fileSize,
+            Math.max(64 * 1024, Math.floor(upload.fileSize * 0.2)),
+          );
+
+    try {
+      await this.quotaService.commit(upload.quotaReservationId, {
+        finalBytes: finalBytes > 0 ? finalBytes : 1,
+        reason: 'avatar-processed',
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to commit quota for avatar ${uploadId}: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  private measureFileLength(url: string | null | undefined): number {
+    if (!url) return 0;
+    try {
+      const buf = this.storageService.readFileBuffer(url);
+      return buf?.length ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  private async releaseQuota(uploadId: string, reason: string): Promise<void> {
+    const upload = await this.avatarUploadRepository.findOne({
+      where: { id: uploadId },
+    });
+    if (!upload || !upload.quotaReservationId) return;
+
+    try {
+      await this.quotaService.release(upload.quotaReservationId, { reason });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to release quota for avatar ${uploadId}: ${(err as Error).message}`,
+      );
     }
   }
 
@@ -175,6 +263,11 @@ export class AvatarProcessor extends WorkerHost {
         processingStatus: AvatarProcessingStatus.FAILED,
         processingError: `Exhausted retries: ${error.message}`,
       });
+      // Final reconciliation: free the reserved quota so the user can
+      // try again after remediation. The process() path also calls this
+      // for non-final failures, but on retry-exhaustion we make the
+      // release durable.
+      await this.releaseQuota(uploadId, 'avatar-attempts-exhausted');
     }
   }
 

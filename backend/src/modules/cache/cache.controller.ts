@@ -13,10 +13,15 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiOkResponse,
+  ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
 } from '@nestjs/swagger';
 import { CacheStrategyService } from './cache-strategy.service';
 import { CacheWarmingService } from './cache-warming.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum';
 import { ApiProperty } from '@nestjs/swagger';
 
 class CacheMetricsResponseDto {
@@ -103,33 +108,45 @@ export class CacheController {
   }
 
   @Delete('invalidate/tag/:tag')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiOperation({
-    summary: 'Invalidate all cache entries tagged with the given tag',
+    summary: '[Admin] Invalidate all cache entries tagged with the given tag',
     description:
       'Merges both the in-process tag index and the Redis-backed tag set ' +
-      'before deleting, so it is safe across restarts and multiple instances.',
+      'before deleting, so it is safe across restarts and multiple instances. ' +
+      'Requires ADMIN role.',
   })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT.' })
+  @ApiForbiddenResponse({ description: 'Caller does not have the ADMIN role.' })
   async invalidateByTag(@Param('tag') tag: string) {
     await this.cacheStrategy.invalidateByTag(tag);
     return { message: `Invalidated all keys with tag: ${tag}` };
   }
 
   @Delete('invalidate/pattern/:pattern')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiOperation({
     summary:
-      'Invalidate all tagged cache entries whose key contains the given pattern',
+      '[Admin] Invalidate all tagged cache entries whose key contains the given pattern',
+    description: 'Requires ADMIN role.',
   })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT.' })
+  @ApiForbiddenResponse({ description: 'Caller does not have the ADMIN role.' })
   async invalidateByPattern(@Param('pattern') pattern: string) {
     await this.cacheStrategy.invalidateByPattern(pattern);
     return { message: `Invalidated all keys matching pattern: ${pattern}` };
   }
 
   @Post('invalidate/keys')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
   @ApiOperation({
-    summary: 'Invalidate a specific set of cache keys (write-side invalidation)',
+    summary: '[Admin] Invalidate a specific set of cache keys',
     description:
-      'Use this from service write paths to invalidate exactly the keys that ' +
-      'were affected by a mutation, without needing a tag.',
+      'Use this to invalidate exactly the keys affected by a mutation, without ' +
+      'needing a tag. Requires ADMIN role.',
   })
   @ApiBody({
     schema: {
@@ -140,11 +157,84 @@ export class CacheController {
       required: ['keys'],
     },
   })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT.' })
+  @ApiForbiddenResponse({ description: 'Caller does not have the ADMIN role.' })
   async invalidateKeys(@Body('keys') keys: string[]) {
     if (!Array.isArray(keys) || keys.length === 0) {
       return { message: 'No keys provided', invalidated: 0 };
     }
     await this.cacheStrategy.invalidateKeys(keys);
     return { message: `Invalidated ${keys.length} key(s)`, invalidated: keys.length };
+  }
+
+  /**
+   * Admin-only unified invalidation endpoint.
+   * Accepts any combination of specific keys, tag names, and key patterns
+   * in a single request.  All three fields are optional but at least one
+   * must be provided.
+   */
+  @Post('admin/invalidate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: '[Admin] Unified cache invalidation — keys, tags, and patterns',
+    description:
+      'Admin-only endpoint to invalidate any combination of specific cache ' +
+      'keys, tag-based sets, and key patterns in a single request. ' +
+      'Requires ADMIN role.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        keys:     { type: 'array', items: { type: 'string' }, description: 'Exact cache keys to invalidate' },
+        tags:     { type: 'array', items: { type: 'string' }, description: 'Tag names — all keys under each tag are invalidated' },
+        patterns: { type: 'array', items: { type: 'string' }, description: 'Substring patterns — all tracked keys containing a pattern are invalidated' },
+      },
+    },
+  })
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      properties: {
+        message:           { type: 'string' },
+        invalidatedKeys:   { type: 'number' },
+        invalidatedTags:   { type: 'number' },
+        invalidatedPatterns: { type: 'number' },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT.' })
+  @ApiForbiddenResponse({ description: 'Caller does not have the ADMIN role.' })
+  async adminInvalidate(
+    @Body('keys')     keys:     string[] | undefined,
+    @Body('tags')     tags:     string[] | undefined,
+    @Body('patterns') patterns: string[] | undefined,
+  ) {
+    let invalidatedKeys     = 0;
+    let invalidatedTags     = 0;
+    let invalidatedPatterns = 0;
+
+    if (Array.isArray(keys) && keys.length > 0) {
+      await this.cacheStrategy.invalidateKeys(keys);
+      invalidatedKeys = keys.length;
+    }
+
+    if (Array.isArray(tags) && tags.length > 0) {
+      await Promise.all(tags.map((t) => this.cacheStrategy.invalidateByTag(t)));
+      invalidatedTags = tags.length;
+    }
+
+    if (Array.isArray(patterns) && patterns.length > 0) {
+      await Promise.all(patterns.map((p) => this.cacheStrategy.invalidateByPattern(p)));
+      invalidatedPatterns = patterns.length;
+    }
+
+    return {
+      message: 'Admin cache invalidation complete',
+      invalidatedKeys,
+      invalidatedTags,
+      invalidatedPatterns,
+    };
   }
 }

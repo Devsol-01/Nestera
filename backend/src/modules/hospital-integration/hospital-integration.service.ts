@@ -1,4 +1,10 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  HttpException,
+  HttpStatus,
+  Optional,
+} from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios';
@@ -8,6 +14,7 @@ import {
   HospitalClaimDataDto,
   HospitalVerificationDto,
 } from './dto/hospital-data.dto';
+import { TestModeService } from '../../common/test-mode/test-mode.service';
 
 export interface CircuitBreakerState {
   failures: number;
@@ -29,6 +36,7 @@ export class HospitalIntegrationService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    @Optional() private readonly testModeService?: TestModeService,
   ) {
     this.maxRetries = this.configService.get<number>('hospital.maxRetries', 3);
     this.retryDelay = this.configService.get<number>(
@@ -158,6 +166,33 @@ export class HospitalIntegrationService {
     hospitalId: string,
     claimId: string,
   ): Promise<HospitalClaimDataDto> {
+    if (this.testModeService?.isEnabled) {
+      return {
+        claimId,
+        patient: {
+          patientId: `test-patient-${claimId}`,
+          name: 'Test Patient',
+          dateOfBirth: '1990-01-01',
+        },
+        diagnoses: [
+          { code: 'TEST001', description: 'Test diagnosis', severity: 'low' },
+        ],
+        treatments: [
+          {
+            treatmentId: 'treat-1',
+            description: 'Test treatment',
+            cost: 1000,
+            date: new Date().toISOString().split('T')[0],
+          },
+        ],
+        totalAmount: 1000,
+        admissionDate: new Date().toISOString().split('T')[0],
+        hospitalId: hospitalId,
+        hospitalName: 'Test Hospital',
+        status: 'verified' as const,
+      };
+    }
+
     const baseUrl = this.configService.get<string>(
       `hospital.endpoints.${hospitalId}`,
     );
@@ -181,6 +216,16 @@ export class HospitalIntegrationService {
     hospitalId: string,
     claimId: string,
   ): Promise<HospitalVerificationDto> {
+    if (this.testModeService?.isEnabled) {
+      return {
+        claimId,
+        verified: true,
+        verificationDate: new Date().toISOString(),
+        verifiedBy: 'test-mode',
+        notes: 'Test mode verification',
+      };
+    }
+
     const baseUrl = this.configService.get<string>(
       `hospital.endpoints.${hospitalId}`,
     );
@@ -204,6 +249,10 @@ export class HospitalIntegrationService {
     hospitalId: string,
     patientId: string,
   ): Promise<HospitalClaimDataDto[]> {
+    if (this.testModeService?.isEnabled) {
+      return [];
+    }
+
     const baseUrl = this.configService.get<string>(
       `hospital.endpoints.${hospitalId}`,
     );

@@ -31,6 +31,11 @@ import {
 } from '../../common/entities/audit-log.entity';
 import { StorageService } from '../storage/storage.service';
 import { JobQueueService } from '../job-queue/job-queue.service';
+import {
+  StorageQuotaService,
+  QuotaReservation,
+} from '../storage-quota/storage-quota.service';
+import { QuotaUploadKind } from '../storage-quota/entities/storage-quota-ledger.entity';
 
 const ALLOWED_TRANSITIONS: Record<DisputeStatus, DisputeStatus[]> = {
   [DisputeStatus.OPEN]: [
@@ -87,6 +92,7 @@ export class DisputesService {
     private readonly auditLogService: AuditLogService,
     private readonly storageService: StorageService,
     private readonly jobQueueService: JobQueueService,
+    private readonly quotaService: StorageQuotaService,
   ) {}
 
   async createDispute(
@@ -136,9 +142,12 @@ export class DisputesService {
   }
 
   async findAll(): Promise<Dispute[]> {
+    // Stable sort: primary key createdAt DESC, tie-breaker id DESC so that
+    // concurrent inserts at the same millisecond never cause duplicate/missing
+    // items across paginated pages.
     return await this.disputeRepository.find({
       relations: ['claim', 'messages', 'timeline'],
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
     });
   }
 
@@ -390,12 +399,43 @@ export class DisputesService {
     correlationId?: string,
   ): Promise<DisputeEvidence> {
     // Verify dispute exists
-    await this.findOne(disputeId);
+    const dispute = await this.findOne(disputeId);
 
-    // Persist file to storage
-    const storagePath = await this.storageService.saveFile(file);
+    // Reserve quota BEFORE writing to storage. Attribution goes to the
+    // disputer only — `dto.uploadedBy` is a freeform staff label (e.g.
+    // "Hospital Admin") and must NOT be used as the quota userId, since
+    // it is not a UUID and would collide with other staff uploads for
+    // the same dispute on the (userId, tenantId) UNIQUE index.
+    const attributedUserId = dispute.disputedBy;
+    if (!attributedUserId) {
+      throw new BadRequestException(
+        'Cannot attribute upload quota: dispute has no attributed disputer',
+      );
+    }
+    await this.quotaService.ensureQuotaRow(attributedUserId, 'verified');
 
-    // Create evidence record with PENDING status
+    const reservation: QuotaReservation = await this.quotaService.reserve(
+      attributedUserId,
+      file.size,
+      {
+        uploadKind: QuotaUploadKind.DISPUTE_EVIDENCE,
+        reason: 'dispute-evidence',
+      },
+    );
+
+    // Write file. If this fails we MUST release the reservation.
+    let storagePath: string;
+    try {
+      storagePath = await this.storageService.saveFile(file);
+    } catch (err) {
+      await this.quotaService.release(reservation.reservationId, {
+        reason: 'storage-write-failed',
+      });
+      throw err;
+    }
+
+    // Create evidence record with PENDING status and the reservation token
+    // so the dispute-evidence processor can reconcile on completion.
     const evidence = this.evidenceRepository.create({
       disputeId,
       originalFilename: file.originalname,
@@ -405,12 +445,16 @@ export class DisputesService {
       uploadedBy: dto.uploadedBy,
       processingStatus: EvidenceProcessingStatus.PENDING,
       jobId: null,
+      quotaReservationId: reservation.reservationId,
     });
     const savedEvidence = await this.evidenceRepository.save(evidence);
 
     // Enqueue background processing job
     const job = await this.jobQueueService.addEvidenceProcessingJob(
       {
+    let job;
+    try {
+      job = await this.jobQueueService.addEvidenceProcessingJob({
         evidenceId: savedEvidence.id,
         disputeId,
         storagePath,
@@ -421,6 +465,13 @@ export class DisputesService {
       undefined,
       correlationId,
     );
+      });
+    } catch (err) {
+      await this.quotaService.release(reservation.reservationId, {
+        reason: 'job-enqueue-failed',
+      });
+      throw err;
+    }
 
     // Store job ID on the evidence record for status polling
     await this.evidenceRepository.update(savedEvidence.id, {

@@ -1,0 +1,28 @@
+{
+  "name": "@nestera/sdk",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./errors": "./src/errors.ts",
+    "./metadata": "./src/metadata.ts",
+    "./generated/*": "./src/generated/*"
+  },
+  "files": [
+    "src",
+    "examples",
+    "README.md"
+  ],
+  "scripts": {
+    "generate": "node ./scripts/generate-sdk.mjs",
+    "verify": "node ./scripts/verify-sdk.mjs",
+    "build": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "openapi-typescript-codegen": "^0.29.0",
+    "typescript": "^5.9.2"
+  }
+}

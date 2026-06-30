@@ -30,6 +30,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import { InitiateKycDto } from './dto/initiate-kyc.dto';
 import { KycWebhookDto } from './dto/kyc-webhook.dto';
 import {
@@ -51,6 +52,7 @@ export class KycController {
   @Post('user/kyc/initiate')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Initiate third-party KYC verification' })
   @ApiResponse({ status: 201, description: 'KYC initiated' })
   initiate(@CurrentUser() user: { id: string }, @Body() dto: InitiateKycDto) {
@@ -61,6 +63,7 @@ export class KycController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.CREATED)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -145,6 +148,7 @@ export class KycController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @ApiBearerAuth()
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Admin: approve or reject a KYC document' })
   reviewDocument(
     @Param('id') id: string,

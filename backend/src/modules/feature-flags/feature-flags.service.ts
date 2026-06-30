@@ -283,4 +283,3 @@ export class FeatureFlagsService {
     await this.cacheManager.del(this.cacheKey(key));
   }
 }
-}

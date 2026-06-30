@@ -25,6 +25,7 @@ import {
 import { DisputesService } from './disputes.service';
 import { CorrelationId } from '../../common/decorators/correlation-id.decorator';
 import { RequestId } from '../../common/decorators/request-id.decorator';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import {
   CreateDisputeDto,
   UpdateDisputeDto,
@@ -41,6 +42,7 @@ export class DisputesController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Open a new dispute' })
   @ApiResponse({ status: 201, description: 'Dispute created', type: Dispute })
   @ApiResponse({ status: 400, description: 'Invalid claim ID' })
@@ -88,6 +90,7 @@ export class DisputesController {
 
   @Post(':id/messages')
   @HttpCode(HttpStatus.CREATED)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Add message/evidence to dispute' })
   @ApiResponse({
     status: 201,
@@ -103,6 +106,7 @@ export class DisputesController {
   }
 
   @Patch(':id/investigate')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Start investigation' })
   @ApiResponse({
     status: 200,
@@ -125,6 +129,7 @@ export class DisputesController {
   }
 
   @Patch(':id/resolve')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Resolve dispute' })
   @ApiResponse({ status: 200, description: 'Dispute resolved', type: Dispute })
   @ApiResponse({ status: 404, description: 'Dispute not found' })
@@ -145,6 +150,7 @@ export class DisputesController {
   }
 
   @Patch(':id/close')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Close dispute' })
   @ApiResponse({ status: 200, description: 'Dispute closed', type: Dispute })
   @ApiResponse({ status: 404, description: 'Dispute not found' })
@@ -163,6 +169,7 @@ export class DisputesController {
   }
 
   @Patch(':id/escalate')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Escalate dispute' })
   @ApiResponse({ status: 200, description: 'Dispute escalated', type: Dispute })
   @ApiResponse({ status: 404, description: 'Dispute not found' })
@@ -184,6 +191,7 @@ export class DisputesController {
 
   @Post(':id/evidence')
   @HttpCode(HttpStatus.CREATED)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary:
       'Upload evidence file for a dispute (triggers background processing)',

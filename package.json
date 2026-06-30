@@ -5,7 +5,10 @@
   "scripts": {
     "prepare": "husky",
     "format": "prettier --write \"backend/src/**/*.{ts,tsx}\" \"frontend/app/**/*.{ts,tsx}\" \"frontend/components/**/*.{ts,tsx}\"",
-    "lint": "eslint \"backend/src/**/*.{ts,tsx}\" \"frontend/app/**/*.{ts,tsx}\" \"frontend/components/**/*.{ts,tsx}\" --fix"
+    "lint": "eslint \"backend/src/**/*.{ts,tsx}\" \"frontend/app/**/*.{ts,tsx}\" \"frontend/components/**/*.{ts,tsx}\" --fix",
+    "generate:openapi": "pnpm --dir backend run generate:openapi",
+    "generate:api-sdk": "pnpm run generate:openapi && pnpm --dir sdk run generate",
+    "verify:api-sdk": "pnpm --dir sdk run verify"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -34,41 +34,56 @@ const TIER_LIMITS: Record<
   [UserTier.FREE]: {
     default: { limit: 60, ttl: 60000 },
     auth: { limit: 5, ttl: 15 * 60 * 1000 },
+    otp: { limit: 3, ttl: 15 * 60 * 1000 },
+    'wallet-link': { limit: 3, ttl: 60 * 60 * 1000 },
     rpc: { limit: 5, ttl: 60000 },
     export: { limit: 1, ttl: 15 * 60 * 1000 },
     vote: { limit: 5, ttl: 60_000 },
+    upload: { limit: 10, ttl: 60_000 },
     'admin-high-risk': { limit: 0, ttl: 5 * 60 * 1000 }, // Not allowed
   },
   [UserTier.VERIFIED]: {
     default: { limit: 150, ttl: 60000 },
     auth: { limit: 10, ttl: 15 * 60 * 1000 },
+    otp: { limit: 5, ttl: 15 * 60 * 1000 },
+    'wallet-link': { limit: 5, ttl: 60 * 60 * 1000 },
     rpc: { limit: 15, ttl: 60000 },
     export: { limit: 3, ttl: 15 * 60 * 1000 },
     vote: { limit: 10, ttl: 60_000 },
+    upload: { limit: 30, ttl: 60_000 },
     'admin-high-risk': { limit: 0, ttl: 5 * 60 * 1000 }, // Not allowed
   },
   [UserTier.PREMIUM]: {
     default: { limit: 300, ttl: 60000 },
     auth: { limit: 15, ttl: 15 * 60 * 1000 },
+    otp: { limit: 5, ttl: 15 * 60 * 1000 },
+    'wallet-link': { limit: 10, ttl: 60 * 60 * 1000 },
     rpc: { limit: 30, ttl: 60000 },
     export: { limit: 4, ttl: 15 * 60 * 1000 },
     vote: { limit: 20, ttl: 60_000 },
+    upload: { limit: 60, ttl: 60_000 },
     'admin-high-risk': { limit: 0, ttl: 5 * 60 * 1000 }, // Not allowed
   },
   [UserTier.ENTERPRISE]: {
     default: { limit: 1000, ttl: 60000 },
     auth: { limit: 30, ttl: 15 * 60 * 1000 },
+    otp: { limit: 10, ttl: 15 * 60 * 1000 },
+    'wallet-link': { limit: 20, ttl: 60 * 60 * 1000 },
     rpc: { limit: 100, ttl: 60000 },
     export: { limit: 8, ttl: 15 * 60 * 1000 },
     vote: { limit: 30, ttl: 60_000 },
+    upload: { limit: 120, ttl: 60_000 },
     'admin-high-risk': { limit: 0, ttl: 5 * 60 * 1000 }, // Not allowed
   },
   [UserTier.ADMIN]: {
     default: { limit: 1000, ttl: 60000 },
     auth: { limit: 50, ttl: 15 * 60 * 1000 },
+    otp: { limit: 20, ttl: 15 * 60 * 1000 },
+    'wallet-link': { limit: 20, ttl: 60 * 60 * 1000 },
     rpc: { limit: 100, ttl: 60000 },
     export: { limit: 6, ttl: 15 * 60 * 1000 },
     vote: { limit: 30, ttl: 60_000 },
+    upload: { limit: 240, ttl: 60_000 },
     'admin-high-risk': { limit: 2, ttl: 5 * 60 * 1000 }, // 2 per 5 minutes
   },
 };
@@ -191,10 +206,7 @@ export class TieredThrottlerGuard extends ThrottlerGuard {
 
         response.setHeader('Retry-After', retryAfter);
         response.setHeader('X-RateLimit-Remaining', 0);
-        response.setHeader(
-          'X-RateLimit-Reset',
-          resetAt,
-        );
+        response.setHeader('X-RateLimit-Reset', resetAt);
 
         throw new HttpException(
           {

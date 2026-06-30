@@ -42,6 +42,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import { Dispute, DisputeTimeline } from '../disputes/entities/dispute.entity';
 
 @ApiTags('admin/disputes')
@@ -213,6 +214,7 @@ export class AdminDisputesController {
 
   @Post(':id/assign')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Assign dispute to admin' })
   @ApiResponse({ status: 200, description: 'Dispute assigned', type: Dispute })
   @ApiResponse({ status: 404, description: 'Dispute not found' })
@@ -233,6 +235,7 @@ export class AdminDisputesController {
 
   @Post(':id/resolve')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Resolve a dispute' })
   @ApiResponse({ status: 200, description: 'Dispute resolved', type: Dispute })
   @ApiResponse({ status: 404, description: 'Dispute not found' })
@@ -253,6 +256,7 @@ export class AdminDisputesController {
 
   @Post(':id/escalate')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Escalate dispute to senior admin' })
   @ApiResponse({ status: 200, description: 'Dispute escalated', type: Dispute })
   @ApiResponse({ status: 404, description: 'Dispute not found' })
@@ -273,6 +277,7 @@ export class AdminDisputesController {
 
   @Post(':id/evidence')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Add evidence/document to dispute' })
   @ApiResponse({ status: 200, description: 'Evidence added', type: Dispute })
   @ApiResponse({ status: 404, description: 'Dispute not found' })
@@ -293,6 +298,7 @@ export class AdminDisputesController {
 
   @Patch(':id')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Update dispute status/priority' })
   @ApiResponse({ status: 200, description: 'Dispute updated', type: Dispute })
   @ApiResponse({ status: 404, description: 'Dispute not found' })

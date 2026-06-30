@@ -20,7 +20,9 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.js",
     "test:e2e:ci": "jest --config ./test/jest-e2e.js --runInBand",
+    "test:contract": "npm run generate:openapi && jest --config ./test/jest-contract.js",
     "generate:openapi": "ts-node -r tsconfig-paths/register scripts/generate-openapi-spec.ts",
+    "generate:sdk": "pnpm --dir .. run generate:api-sdk",
     "generate:error-docs": "ts-node -r tsconfig-paths/register src/scripts/generate-error-docs.ts"
   },
   "dependencies": {
@@ -62,6 +64,7 @@
     "ioredis": "^5.11.1",
     "isomorphic-dompurify": "^3.15.0",
     "joi": "^18.0.2",
+    "js-yaml": "^5.2.0",
     "multer": "^2.1.1",
     "nestjs-pino": "^4.6.1",
     "nodemailer": "^8.0.1",
@@ -92,6 +95,7 @@
     "@types/compression": "^1.7.6",
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.14",
+    "@types/js-yaml": "^4.0.9",
     "@types/multer": "^2.0.0",
     "@types/node": "^22.10.7",
     "@types/nodemailer": "^7.0.11",

@@ -184,9 +184,11 @@ export class TransactionsService {
   }
 
   async listSavedSearches(userId: string): Promise<SavedSearchResponseDto[]> {
+    // Stable sort: isDefault first, then most recently updated, then id as a
+    // tie-breaker so concurrent updates at the same millisecond are deterministic.
     const rows = await this.savedSearchRepository.find({
       where: { userId },
-      order: { isDefault: 'DESC', updatedAt: 'DESC' },
+      order: { isDefault: 'DESC', updatedAt: 'DESC', id: 'ASC' },
     });
 
     return rows.map((row) => this.toSavedSearchResponse(row));
