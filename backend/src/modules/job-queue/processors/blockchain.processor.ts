@@ -9,14 +9,15 @@ export class BlockchainProcessor extends WorkerHost {
   private readonly logger = new Logger(BlockchainProcessor.name);
 
   async process(job: Job<BlockchainJobData>): Promise<any> {
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
     this.logger.debug(
-      `Processing blockchain job ${job.id} (attempt ${job.attemptsMade + 1})`,
+      `${correlationPrefix}Processing blockchain job ${job.id} (attempt ${job.attemptsMade + 1})`,
     );
 
     const { eventId, contractId, eventType } = job.data;
 
     this.logger.log(
-      `Blockchain event processed: eventId=${eventId} contract=${contractId} type=${eventType}`,
+      `${correlationPrefix}Blockchain event processed: eventId=${eventId} contract=${contractId} type=${eventType}`,
     );
 
     return { processed: true, eventId, eventType };
@@ -24,19 +25,21 @@ export class BlockchainProcessor extends WorkerHost {
 
   @OnWorkerEvent('failed')
   onFailed(job: Job<BlockchainJobData>, error: Error) {
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
     this.logger.error(
-      `Blockchain job ${job.id} failed after ${job.attemptsMade} attempts: ${error.message}`,
+      `${correlationPrefix}Blockchain job ${job.id} failed after ${job.attemptsMade} attempts: ${error.message}`,
     );
 
     if (job.attemptsMade >= (job.opts.attempts ?? 5)) {
       this.logger.error(
-        `Blockchain job ${job.id} moved to DLQ — eventId=${job.data.eventId} type=${job.data.eventType}`,
+        `${correlationPrefix}Blockchain job ${job.id} moved to DLQ — eventId=${job.data.eventId} type=${job.data.eventType}`,
       );
     }
   }
 
   @OnWorkerEvent('completed')
   onCompleted(job: Job<BlockchainJobData>) {
-    this.logger.debug(`Blockchain job ${job.id} completed`);
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
+    this.logger.debug(`${correlationPrefix}Blockchain job ${job.id} completed`);
   }
 }

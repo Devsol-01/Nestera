@@ -27,6 +27,7 @@ export class AvatarUploadService {
   async uploadAvatar(
     userId: string,
     file: any,
+    correlationId?: string,
   ): Promise<AvatarUploadResponseDto> {
     const validation = await this.fileUploadConfig.validateFile(file, 'avatar');
     if (!validation.valid) {
@@ -46,13 +47,17 @@ export class AvatarUploadService {
     });
     const savedUpload = await this.avatarUploadRepository.save(upload);
 
-    const job = await this.jobQueueService.addAvatarProcessingJob({
-      uploadId: savedUpload.id,
-      userId,
-      storagePath,
-      mimeType: file.mimetype,
-      originalFilename: file.originalname,
-    });
+    const job = await this.jobQueueService.addAvatarProcessingJob(
+      {
+        uploadId: savedUpload.id,
+        userId,
+        storagePath,
+        mimeType: file.mimetype,
+        originalFilename: file.originalname,
+      },
+      undefined,
+      correlationId,
+    );
 
     await this.avatarUploadRepository.update(savedUpload.id, {
       jobId: String(job.id),

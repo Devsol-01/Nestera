@@ -19,8 +19,9 @@ export class AuditLogExportProcessor extends WorkerHost {
   }
 
   async process(job: Job<AuditLogExportJobData>): Promise<any> {
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
     this.logger.debug(
-      `Processing audit log export job ${job.id} (attempt ${job.attemptsMade + 1})`,
+      `${correlationPrefix}Processing audit log export job ${job.id} (attempt ${job.attemptsMade + 1})`,
     );
 
     const { filters, format, requestedBy } = job.data;
@@ -28,7 +29,7 @@ export class AuditLogExportProcessor extends WorkerHost {
     const data = this.formatExport(logs, format);
 
     this.logger.log(
-      `Audit log export completed: job=${job.id} format=${format} count=${logs.length} requestedBy=${requestedBy}`,
+      `${correlationPrefix}Audit log export completed: job=${job.id} format=${format} count=${logs.length} requestedBy=${requestedBy}`,
     );
 
     return {
@@ -42,14 +43,16 @@ export class AuditLogExportProcessor extends WorkerHost {
 
   @OnWorkerEvent('failed')
   onFailed(job: Job<AuditLogExportJobData>, error: Error) {
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
     this.logger.error(
-      `Audit log export job ${job.id} failed after ${job.attemptsMade} attempts: ${error.message}`,
+      `${correlationPrefix}Audit log export job ${job.id} failed after ${job.attemptsMade} attempts: ${error.message}`,
     );
   }
 
   @OnWorkerEvent('completed')
   onCompleted(job: Job<AuditLogExportJobData>) {
-    this.logger.debug(`Audit log export job ${job.id} completed`);
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
+    this.logger.debug(`${correlationPrefix}Audit log export job ${job.id} completed`);
   }
 
   private async fetchAuditLogs(

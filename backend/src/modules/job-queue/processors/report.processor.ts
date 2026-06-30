@@ -21,8 +21,9 @@ export class ReportProcessor extends WorkerHost {
   }
 
   async process(job: Job<ReportJobData>): Promise<any> {
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
     this.logger.debug(
-      `Processing report job ${job.id} (attempt ${job.attemptsMade + 1})`,
+      `${correlationPrefix}Processing report job ${job.id} (attempt ${job.attemptsMade + 1})`,
     );
 
     const { reportType, userId, scheduleId } = job.data;
@@ -59,20 +60,22 @@ export class ReportProcessor extends WorkerHost {
     }
 
     this.logger.log(
-      `Ad-hoc report job completed: type=${reportType} user=${userId}`,
+      `${correlationPrefix}Ad-hoc report job completed: type=${reportType} user=${userId}`,
     );
     return { processed: true, reportType, userId };
   }
 
   @OnWorkerEvent('failed')
   onFailed(job: Job<ReportJobData>, error: Error) {
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
     this.logger.error(
-      `Report job ${job.id} failed after ${job.attemptsMade} attempts: ${error.message}`,
+      `${correlationPrefix}Report job ${job.id} failed after ${job.attemptsMade} attempts: ${error.message}`,
     );
   }
 
   @OnWorkerEvent('completed')
   onCompleted(job: Job<ReportJobData>) {
-    this.logger.debug(`Report job ${job.id} completed`);
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
+    this.logger.debug(`${correlationPrefix}Report job ${job.id} completed`);
   }
 }

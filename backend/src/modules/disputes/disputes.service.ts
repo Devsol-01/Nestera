@@ -387,6 +387,7 @@ export class DisputesService {
     disputeId: string,
     file: any,
     dto: UploadEvidenceDto,
+    correlationId?: string,
   ): Promise<DisputeEvidence> {
     // Verify dispute exists
     await this.findOne(disputeId);
@@ -408,14 +409,18 @@ export class DisputesService {
     const savedEvidence = await this.evidenceRepository.save(evidence);
 
     // Enqueue background processing job
-    const job = await this.jobQueueService.addEvidenceProcessingJob({
-      evidenceId: savedEvidence.id,
-      disputeId,
-      storagePath,
-      mimeType: file.mimetype,
-      originalFilename: file.originalname,
-      uploadedBy: dto.uploadedBy,
-    });
+    const job = await this.jobQueueService.addEvidenceProcessingJob(
+      {
+        evidenceId: savedEvidence.id,
+        disputeId,
+        storagePath,
+        mimeType: file.mimetype,
+        originalFilename: file.originalname,
+        uploadedBy: dto.uploadedBy,
+      },
+      undefined,
+      correlationId,
+    );
 
     // Store job ID on the evidence record for status polling
     await this.evidenceRepository.update(savedEvidence.id, {
