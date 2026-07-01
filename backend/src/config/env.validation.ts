@@ -48,4 +48,5 @@ export const envValidationSchema = Joi.object({
   MAIL_USER: Joi.string().optional(),
   MAIL_PASS: Joi.string().optional(),
   MAIL_FROM: Joi.string().optional(),
+  MAIL_PROVIDERS: Joi.string().optional(),
 }).or('DATABASE_URL', 'DB_HOST'); // enforce at least one DB connection strategy
