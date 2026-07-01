@@ -14,6 +14,9 @@ export class DataExportProcessor {
 
   @Process(DATA_EXPORT_JOB_NAME)
   async handle(job: Job<{ requestId: string }>): Promise<void> {
-    await this.dataExportService.processExportJob(job.data.requestId);
+    await this.dataExportService.processExportJob(
+      job.data.requestId,
+      String(job.id),
+    );
   }
 }

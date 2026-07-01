@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { Cron } from '@nestjs/schedule';
@@ -14,7 +14,13 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
-import { AuditLog } from '../../common/entities/audit-log.entity';
+import {
+  AuditLog,
+  AuditAction,
+  AuditResourceType,
+  SYSTEM_ACTOR,
+} from '../../common/entities/audit-log.entity';
+import { AuditLogService } from '../../common/services/audit-log.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ShutdownTrackedTask } from '../../common/decorators/shutdown-task.decorator';
 
@@ -40,6 +46,7 @@ export class AdminAuditLogsArchivalService {
     private readonly auditLogRepository: Repository<AuditLog>,
     private readonly configService: ConfigService,
     private readonly eventEmitter?: EventEmitter2,
+    @Optional() private readonly auditLogService?: AuditLogService,
   ) {
     this.config = {
       retentionDays:
@@ -81,8 +88,16 @@ export class AdminAuditLogsArchivalService {
   @ShutdownTrackedTask()
   @Cron('0 1 * * *')
   async archiveOldLogs(): Promise<void> {
+    const startedAt = Date.now();
+    const cutoffDate = this.getArchivalCutoffDate();
+
+    // Capture before-state for audit diff
+    const logsBeforeArchival = await this.auditLogRepository.count({
+      where: { timestamp: LessThan(cutoffDate) },
+    });
+    const totalBeforeArchival = await this.auditLogRepository.count();
+
     try {
-      const cutoffDate = this.getArchivalCutoffDate();
       this.logger.log(
         `Starting audit log archival for logs before ${cutoffDate.toISOString()}`,
       );
@@ -96,6 +111,26 @@ export class AdminAuditLogsArchivalService {
         cutoffDate,
         timestamp: new Date(),
       });
+
+      // Audit log – successful archival (SYSTEM actor)
+      await this.auditLogService?.log({
+        actor: SYSTEM_ACTOR,
+        action: AuditAction.ARCHIVE,
+        resourceType: AuditResourceType.JOB,
+        description: `Audit log archival completed: ${count} logs archived (cutoff=${cutoffDate.toISOString()}, retentionDays=${this.config.retentionDays}).`,
+        previousValue: {
+          totalLogsInDb: totalBeforeArchival,
+          logsEligibleForArchival: logsBeforeArchival,
+          cutoffDate: cutoffDate.toISOString(),
+        },
+        newValue: {
+          archivedCount: count,
+          totalLogsAfterArchival: totalBeforeArchival - count,
+          completedAt: new Date().toISOString(),
+        },
+        durationMs: Date.now() - startedAt,
+        success: true,
+      });
     } catch (error) {
       const msg = (error as Error).message;
       this.logger.error(`Audit log archival failed: ${msg}`);
@@ -103,6 +138,23 @@ export class AdminAuditLogsArchivalService {
       this.eventEmitter?.emit('audit.archival.failed', {
         error: msg,
         timestamp: new Date(),
+      });
+
+      // Audit log – failed archival
+      await this.auditLogService?.log({
+        actor: SYSTEM_ACTOR,
+        action: AuditAction.ARCHIVE,
+        resourceType: AuditResourceType.JOB,
+        description: `Audit log archival failed: ${msg}`,
+        previousValue: {
+          totalLogsInDb: totalBeforeArchival,
+          logsEligibleForArchival: logsBeforeArchival,
+          cutoffDate: cutoffDate.toISOString(),
+        },
+        newValue: { error: msg },
+        durationMs: Date.now() - startedAt,
+        success: false,
+        errorMessage: msg,
       });
     }
   }
