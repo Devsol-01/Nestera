@@ -36,6 +36,7 @@ export class AvatarUploadService {
   async uploadAvatar(
     userId: string,
     file: any,
+    correlationId?: string,
   ): Promise<AvatarUploadResponseDto> {
     // 1. Cheap pre-flight: file metadata only, no DB / no storage I/O.
     const validation = await this.fileUploadConfig.validateFile(file, 'avatar');
@@ -80,6 +81,8 @@ export class AvatarUploadService {
     });
     const savedUpload = await this.avatarUploadRepository.save(upload);
 
+    const job = await this.jobQueueService.addAvatarProcessingJob(
+      {
     // 5. Enqueue background processing. The processor is responsible for
     // calling quotaService.commit() (success) or quotaService.release()
     // (failure) using `savedUpload.quotaReservationId`.
@@ -90,6 +93,10 @@ export class AvatarUploadService {
         storagePath,
         mimeType: file.mimetype,
         originalFilename: file.originalname,
+      },
+      undefined,
+      correlationId,
+    );
       });
 
       await this.avatarUploadRepository.update(savedUpload.id, {

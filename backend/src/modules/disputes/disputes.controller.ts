@@ -228,8 +228,9 @@ export class DisputesController {
       }),
     )
     file: any,
+    @CorrelationId() correlationId?: string,
   ): Promise<DisputeEvidence> {
-    return this.disputesService.uploadEvidence(id, file, dto);
+    return this.disputesService.uploadEvidence(id, file, dto, correlationId);
   }
 
   @Get(':id/evidence')

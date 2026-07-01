@@ -396,6 +396,7 @@ export class DisputesService {
     disputeId: string,
     file: any,
     dto: UploadEvidenceDto,
+    correlationId?: string,
   ): Promise<DisputeEvidence> {
     // Verify dispute exists
     const dispute = await this.findOne(disputeId);
@@ -449,6 +450,8 @@ export class DisputesService {
     const savedEvidence = await this.evidenceRepository.save(evidence);
 
     // Enqueue background processing job
+    const job = await this.jobQueueService.addEvidenceProcessingJob(
+      {
     let job;
     try {
       job = await this.jobQueueService.addEvidenceProcessingJob({
@@ -458,6 +461,10 @@ export class DisputesService {
         mimeType: file.mimetype,
         originalFilename: file.originalname,
         uploadedBy: dto.uploadedBy,
+      },
+      undefined,
+      correlationId,
+    );
       });
     } catch (err) {
       await this.quotaService.release(reservation.reservationId, {

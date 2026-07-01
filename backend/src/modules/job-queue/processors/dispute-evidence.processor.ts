@@ -24,11 +24,12 @@ export class DisputeEvidenceProcessor extends WorkerHost {
   }
 
   async process(job: Job<DisputeEvidenceJobData>): Promise<any> {
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
     const { evidenceId, disputeId, storagePath, mimeType, originalFilename } =
       job.data;
 
     this.logger.log(
-      `Processing evidence job ${job.id} — evidenceId=${evidenceId} disputeId=${disputeId} (attempt ${job.attemptsMade + 1})`,
+      `${correlationPrefix}Processing evidence job ${job.id} — evidenceId=${evidenceId} disputeId=${disputeId} (attempt ${job.attemptsMade + 1})`,
     );
 
     // Mark as PROCESSING
@@ -57,14 +58,14 @@ export class DisputeEvidenceProcessor extends WorkerHost {
       await this.commitQuota(evidenceId);
 
       this.logger.log(
-        `Evidence job ${job.id} completed — evidenceId=${evidenceId}`,
+        `${correlationPrefix}Evidence job ${job.id} completed — evidenceId=${evidenceId}`,
       );
 
       return { evidenceId, disputeId, status: 'completed', metadata };
     } catch (error) {
       const errMsg = (error as Error).message;
       this.logger.error(
-        `Evidence job ${job.id} processing failed — evidenceId=${evidenceId}: ${errMsg}`,
+        `${correlationPrefix}Evidence job ${job.id} processing failed — evidenceId=${evidenceId}: ${errMsg}`,
       );
 
       // Persist failure reason; the @OnWorkerEvent('failed') hook handles
@@ -157,16 +158,17 @@ export class DisputeEvidenceProcessor extends WorkerHost {
 
   @OnWorkerEvent('failed')
   async onFailed(job: Job<DisputeEvidenceJobData>, error: Error) {
-    const { evidenceId, disputeId } = job.data;
+    const { evidenceId, disputeId, correlationId } = job.data;
+    const correlationPrefix = correlationId ? `[${correlationId}] ` : '';
     const attemptsExhausted = job.attemptsMade >= (job.opts.attempts ?? 3);
 
     this.logger.error(
-      `Evidence job ${job.id} failed (attempt ${job.attemptsMade}/${job.opts.attempts ?? 3}) — evidenceId=${evidenceId} disputeId=${disputeId}: ${error.message}`,
+      `${correlationPrefix}Evidence job ${job.id} failed (attempt ${job.attemptsMade}/${job.opts.attempts ?? 3}) — evidenceId=${evidenceId} disputeId=${disputeId}: ${error.message}`,
     );
 
     if (attemptsExhausted) {
       this.logger.error(
-        `Evidence job ${job.id} exhausted retries — moved to dead-letter queue. evidenceId=${evidenceId}`,
+        `${correlationPrefix}Evidence job ${job.id} exhausted retries — moved to dead-letter queue. evidenceId=${evidenceId}`,
       );
 
       // Ensure the DB reflects final failure state
@@ -184,8 +186,9 @@ export class DisputeEvidenceProcessor extends WorkerHost {
 
   @OnWorkerEvent('completed')
   onCompleted(job: Job<DisputeEvidenceJobData>) {
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
     this.logger.debug(
-      `Evidence job ${job.id} worker event: completed — evidenceId=${job.data.evidenceId}`,
+      `${correlationPrefix}Evidence job ${job.id} worker event: completed — evidenceId=${job.data.evidenceId}`,
     );
   }
 }

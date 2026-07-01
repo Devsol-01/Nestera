@@ -86,6 +86,7 @@ describe('JobQueueService', () => {
       expect(result.id).toBe('job-1');
     });
 
+    it('should propagate correlationId in job data', async () => {
     it('should return existing job on duplicate enqueue', async () => {
       const data = {
         userId: 'user-1',
@@ -93,6 +94,15 @@ describe('JobQueueService', () => {
         title: 'Sweep Done',
         message: 'Swept 100 XLM',
       };
+      const correlationId = 'corr-notif-123';
+
+      await service.addNotificationJob(data, undefined, correlationId);
+
+      expect(notificationQueue.add).toHaveBeenCalledWith(
+        'send-notification',
+        expect.objectContaining({ correlationId }),
+        undefined,
+      );
       const duplicateError = new Error('Job already exists');
       duplicateError.name = 'JobAlreadyExistsError';
       const existingJob = { id: 'existing-job', data };
@@ -138,6 +148,24 @@ describe('JobQueueService', () => {
       );
       expect(result.id).toBe('job-1');
     });
+
+    it('should propagate correlationId in job data', async () => {
+      const data = {
+        to: 'user@test.com',
+        subject: 'Welcome',
+        template: 'welcome',
+        context: { name: 'Alice' },
+      };
+      const correlationId = 'corr-email-456';
+
+      await service.addEmailJob(data, undefined, correlationId);
+
+      expect(emailQueue.add).toHaveBeenCalledWith(
+        'send-email',
+        expect.objectContaining({ correlationId }),
+        undefined,
+      );
+    });
   });
 
   describe('addBlockchainJob', () => {
@@ -155,6 +183,24 @@ describe('JobQueueService', () => {
         'process-blockchain-event',
         data,
         { jobId: 'blockchain-evt-123' },
+      );
+    });
+
+    it('should propagate correlationId in job data', async () => {
+      const data = {
+        eventId: 'evt-456',
+        contractId: 'CDEF456',
+        eventType: 'withdrawal',
+        rawEvent: { ledger: 200 },
+      };
+      const correlationId = 'corr-bc-789';
+
+      await service.addBlockchainJob(data, undefined, correlationId);
+
+      expect(blockchainQueue.add).toHaveBeenCalledWith(
+        'process-blockchain-event',
+        expect.objectContaining({ correlationId }),
+        expect.objectContaining({ jobId: 'blockchain-evt-456' }),
       );
     });
   });
@@ -175,6 +221,23 @@ describe('JobQueueService', () => {
         expect.objectContaining({
           jobId: 'generate-report--user-1-monthly-summary',
         }),
+      );
+    });
+
+    it('should propagate correlationId in job data', async () => {
+      const data = {
+        reportType: 'annual-summary',
+        userId: 'user-2',
+        params: { year: 2025 },
+      };
+      const correlationId = 'corr-report-abc';
+
+      await service.addReportJob(data, undefined, correlationId);
+
+      expect(reportQueue.add).toHaveBeenCalledWith(
+        'generate-report',
+        expect.objectContaining({ correlationId }),
+        undefined,
       );
     });
   });
@@ -200,6 +263,25 @@ describe('JobQueueService', () => {
         }),
       );
     });
+
+    it('should propagate correlationId in job data', async () => {
+      const data = {
+        uploadId: 'upload-2',
+        userId: 'user-3',
+        storagePath: 'avatars/user-3/raw.png',
+        mimeType: 'image/jpeg',
+        originalFilename: 'photo.jpg',
+      };
+      const correlationId = 'corr-avatar-def';
+
+      await service.addAvatarProcessingJob(data, undefined, correlationId);
+
+      expect(avatarQueue.add).toHaveBeenCalledWith(
+        'process-avatar',
+        expect.objectContaining({ correlationId }),
+        expect.objectContaining({ jobId: 'avatar-upload-2' }),
+      );
+    });
   });
 
   describe('addAuditLogExportJob', () => {
@@ -218,6 +300,45 @@ describe('JobQueueService', () => {
         expect.objectContaining({
           attempts: 3,
         }),
+      );
+    });
+
+    it('should propagate correlationId in job data', async () => {
+      const data = {
+        filters: { actor: 'admin-2' },
+        format: 'json' as const,
+        requestedBy: 'admin-2',
+      };
+      const correlationId = 'corr-export-ghi';
+
+      await service.addAuditLogExportJob(data, undefined, correlationId);
+
+      expect(auditLogExportQueue.add).toHaveBeenCalledWith(
+        'export-audit-logs',
+        expect.objectContaining({ correlationId }),
+        expect.objectContaining({ attempts: 3 }),
+      );
+    });
+  });
+
+  describe('addEvidenceProcessingJob', () => {
+    it('should propagate correlationId in job data', async () => {
+      const data = {
+        evidenceId: 'evid-1',
+        disputeId: 'disp-1',
+        storagePath: 'evidence/file.pdf',
+        mimeType: 'application/pdf',
+        originalFilename: 'file.pdf',
+        uploadedBy: 'user-1',
+      };
+      const correlationId = 'corr-evid-jkl';
+
+      await service.addEvidenceProcessingJob(data, undefined, correlationId);
+
+      expect(disputeEvidenceQueue.add).toHaveBeenCalledWith(
+        'process-dispute-evidence',
+        expect.objectContaining({ correlationId }),
+        expect.objectContaining({ jobId: 'evidence-evid-1' }),
       );
     });
   });

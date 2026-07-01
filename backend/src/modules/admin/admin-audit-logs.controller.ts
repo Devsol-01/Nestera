@@ -28,6 +28,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
+import { CorrelationId } from '../../common/decorators/correlation-id.decorator';
 import { JobQueueService } from '../job-queue/job-queue.service';
 import { QUEUE_NAMES } from '../job-queue/job-queue.constants';
 import { Job } from 'bullmq';
@@ -158,19 +159,24 @@ export class AdminAuditLogsController {
   async queueExport(
     @Body() dto: AuditLogExportDto,
     @Query('format') format: 'csv' | 'json' = 'csv',
+    @CorrelationId() correlationId?: string,
   ) {
-    const job = await this.jobQueueService.addAuditLogExportJob({
-      filters: {
-        actor: dto.actor,
-        action: dto.action,
-        resourceType: dto.resourceType,
-        resourceId: dto.resourceId,
-        fromDate: dto.fromDate,
-        toDate: dto.toDate,
+    const job = await this.jobQueueService.addAuditLogExportJob(
+      {
+        filters: {
+          actor: dto.actor,
+          action: dto.action,
+          resourceType: dto.resourceType,
+          resourceId: dto.resourceId,
+          fromDate: dto.fromDate,
+          toDate: dto.toDate,
+        },
+        format,
+        requestedBy: 'admin',
       },
-      format,
-      requestedBy: 'admin',
-    });
+      undefined,
+      correlationId,
+    );
 
     return {
       jobId: job.id,

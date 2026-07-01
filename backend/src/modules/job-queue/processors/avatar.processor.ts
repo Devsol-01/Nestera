@@ -33,10 +33,11 @@ export class AvatarProcessor extends WorkerHost {
   }
 
   async process(job: Job<AvatarJobData>): Promise<Record<string, unknown>> {
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
     const { uploadId, userId, storagePath, mimeType } = job.data;
 
     this.logger.log(
-      `Processing avatar job ${job.id} — uploadId=${uploadId} userId=${userId} (attempt ${job.attemptsMade + 1})`,
+      `${correlationPrefix}Processing avatar job ${job.id} — uploadId=${uploadId} userId=${userId} (attempt ${job.attemptsMade + 1})`,
     );
 
     await this.avatarUploadRepository.update(uploadId, {
@@ -63,14 +64,14 @@ export class AvatarProcessor extends WorkerHost {
       await this.reconcileQuota(uploadId);
 
       this.logger.log(
-        `Avatar job ${job.id} completed — uploadId=${uploadId} processedUrl=${processedUrl}`,
+        `${correlationPrefix}Avatar job ${job.id} completed — uploadId=${uploadId} processedUrl=${processedUrl}`,
       );
 
       return { uploadId, userId, status: 'completed', metadata };
     } catch (error) {
       const errMsg = (error as Error).message;
       this.logger.error(
-        `Avatar job ${job.id} failed — uploadId=${uploadId}: ${errMsg}`,
+        `${correlationPrefix}Avatar job ${job.id} failed — uploadId=${uploadId}: ${errMsg}`,
       );
 
       await this.avatarUploadRepository.update(uploadId, {
@@ -249,11 +250,12 @@ export class AvatarProcessor extends WorkerHost {
 
   @OnWorkerEvent('failed')
   async onFailed(job: Job<AvatarJobData>, error: Error) {
-    const { uploadId } = job.data;
+    const { uploadId, correlationId } = job.data;
+    const correlationPrefix = correlationId ? `[${correlationId}] ` : '';
     const attemptsExhausted = job.attemptsMade >= (job.opts.attempts ?? 3);
 
     this.logger.error(
-      `Avatar job ${job.id} failed (attempt ${job.attemptsMade}/${job.opts.attempts ?? 3}) — uploadId=${uploadId}: ${error.message}`,
+      `${correlationPrefix}Avatar job ${job.id} failed (attempt ${job.attemptsMade}/${job.opts.attempts ?? 3}) — uploadId=${uploadId}: ${error.message}`,
     );
 
     if (attemptsExhausted) {
@@ -271,8 +273,9 @@ export class AvatarProcessor extends WorkerHost {
 
   @OnWorkerEvent('completed')
   onCompleted(job: Job<AvatarJobData>) {
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
     this.logger.debug(
-      `Avatar job ${job.id} worker event: completed — uploadId=${job.data.uploadId}`,
+      `${correlationPrefix}Avatar job ${job.id} worker event: completed — uploadId=${job.data.uploadId}`,
     );
   }
 }

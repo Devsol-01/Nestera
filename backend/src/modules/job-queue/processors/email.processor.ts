@@ -9,14 +9,15 @@ export class EmailProcessor extends WorkerHost {
   private readonly logger = new Logger(EmailProcessor.name);
 
   async process(job: Job<EmailJobData>): Promise<any> {
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
     this.logger.debug(
-      `Processing email job ${job.id} (attempt ${job.attemptsMade + 1})`,
+      `${correlationPrefix}Processing email job ${job.id} (attempt ${job.attemptsMade + 1})`,
     );
 
     const { to, subject, template } = job.data;
 
     this.logger.log(
-      `Email dispatched: to=${to} subject="${subject}" template=${template}`,
+      `${correlationPrefix}Email dispatched: to=${to} subject="${subject}" template=${template}`,
     );
 
     return { processed: true, to, subject };
@@ -24,19 +25,21 @@ export class EmailProcessor extends WorkerHost {
 
   @OnWorkerEvent('failed')
   onFailed(job: Job<EmailJobData>, error: Error) {
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
     this.logger.error(
-      `Email job ${job.id} failed after ${job.attemptsMade} attempts: ${error.message}`,
+      `${correlationPrefix}Email job ${job.id} failed after ${job.attemptsMade} attempts: ${error.message}`,
     );
 
     if (job.attemptsMade >= (job.opts.attempts ?? 3)) {
       this.logger.error(
-        `Email job ${job.id} moved to DLQ — to=${job.data.to} subject="${job.data.subject}"`,
+        `${correlationPrefix}Email job ${job.id} moved to DLQ — to=${job.data.to} subject="${job.data.subject}"`,
       );
     }
   }
 
   @OnWorkerEvent('completed')
   onCompleted(job: Job<EmailJobData>) {
-    this.logger.debug(`Email job ${job.id} completed`);
+    const correlationPrefix = job.data.correlationId ? `[${job.data.correlationId}] ` : '';
+    this.logger.debug(`${correlationPrefix}Email job ${job.id} completed`);
   }
 }

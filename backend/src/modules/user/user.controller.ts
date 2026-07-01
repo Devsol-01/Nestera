@@ -35,6 +35,7 @@ import { UserProfileResponseDto } from './dto/user-profile-response.dto';
 import { AvatarUploadResponseDto } from './dto/avatar-upload-response.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CorrelationId } from '../../common/decorators/correlation-id.decorator';
 import { Throttle } from '@nestjs/throttler';
 
 import { FileValidator } from '@nestjs/common';
@@ -233,8 +234,9 @@ export class UserController {
       }),
     )
     file: any,
+    @CorrelationId() correlationId?: string,
   ): Promise<AvatarUploadResponseDto> {
-    return this.avatarUploadService.uploadAvatar(user.id, file);
+    return this.avatarUploadService.uploadAvatar(user.id, file, correlationId);
   }
 
   @Get('avatar/status')
