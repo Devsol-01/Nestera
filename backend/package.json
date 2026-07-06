@@ -23,7 +23,8 @@
     "test:contract": "npm run generate:openapi && jest --config ./test/jest-contract.js",
     "generate:openapi": "ts-node -r tsconfig-paths/register scripts/generate-openapi-spec.ts",
     "generate:sdk": "pnpm --dir .. run generate:api-sdk",
-    "generate:error-docs": "ts-node -r tsconfig-paths/register src/scripts/generate-error-docs.ts"
+    "generate:error-docs": "ts-node -r tsconfig-paths/register src/scripts/generate-error-docs.ts",
+    "security:sca": "node scripts/run-dependency-scan.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1019.0",
