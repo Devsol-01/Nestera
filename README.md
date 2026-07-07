@@ -402,4 +402,3 @@ Need help? Here's how to get support:
 ---
 
 **Built with ❤️ on Stellar**
-"# test" 
