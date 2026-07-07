@@ -54,7 +54,7 @@ describe('MetricsService', () => {
 
     const rate = service.calculateRate('test_rate', {
       start: oneHourAgo,
-      end: now,
+      end: new Date(Date.now() + 1000),
     });
     expect(rate).toBeGreaterThan(0);
   });

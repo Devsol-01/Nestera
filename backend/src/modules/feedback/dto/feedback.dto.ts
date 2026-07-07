@@ -45,12 +45,12 @@ export class UpdateFeedbackStatusDto {
 }
 
 export class FeedbackQueryDto {
-  @ApiPropertyOptional({ enum: FeedbackCategory })
+  @ApiPropertyOptional({ enum: FeedbackCategory, example: FeedbackCategory.BUG_REPORT })
   @IsOptional()
   @IsEnum(FeedbackCategory)
   category?: FeedbackCategory;
 
-  @ApiPropertyOptional({ enum: FeedbackStatus })
+  @ApiPropertyOptional({ enum: FeedbackStatus, example: FeedbackStatus.OPEN })
   @IsOptional()
   @IsEnum(FeedbackStatus)
   status?: FeedbackStatus;

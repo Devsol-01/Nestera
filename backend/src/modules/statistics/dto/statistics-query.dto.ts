@@ -35,6 +35,7 @@ export class StatisticsQueryDto {
   @ApiPropertyOptional({
     enum: TimeRange,
     default: TimeRange.LAST_30_DAYS,
+    example: TimeRange.LAST_30_DAYS,
     description: 'Time range for statistics',
   })
   @IsEnum(TimeRange)
@@ -44,6 +45,7 @@ export class StatisticsQueryDto {
   @ApiPropertyOptional({
     type: String,
     format: 'date',
+    example: '2026-06-01',
     description: 'Start date for custom range (YYYY-MM-DD)',
   })
   @IsDateString()
@@ -53,6 +55,7 @@ export class StatisticsQueryDto {
   @ApiPropertyOptional({
     type: String,
     format: 'date',
+    example: '2026-06-30',
     description: 'End date for custom range (YYYY-MM-DD)',
   })
   @IsDateString()
@@ -62,6 +65,7 @@ export class StatisticsQueryDto {
   @ApiPropertyOptional({
     enum: MetricPeriod,
     default: MetricPeriod.DAILY,
+    example: MetricPeriod.DAILY,
     description: 'Granularity of metrics',
   })
   @IsEnum(MetricPeriod)
@@ -70,6 +74,7 @@ export class StatisticsQueryDto {
 
   @ApiPropertyOptional({
     enum: ComparisonPeriod,
+    example: ComparisonPeriod.PREVIOUS_PERIOD,
     description: 'Compare with a previous period',
   })
   @IsEnum(ComparisonPeriod)
@@ -78,6 +83,7 @@ export class StatisticsQueryDto {
 
   @ApiPropertyOptional({
     type: String,
+    example: 'savings',
     description: 'Filter by specific category/segment',
   })
   @IsString()
@@ -87,6 +93,7 @@ export class StatisticsQueryDto {
   @ApiPropertyOptional({
     type: Number,
     default: 1,
+    example: 1,
     description: 'Page number for pagination',
   })
   @Type(() => Number)
@@ -98,6 +105,7 @@ export class StatisticsQueryDto {
   @ApiPropertyOptional({
     type: Number,
     default: 50,
+    example: 50,
     description: 'Items per page',
   })
   @Type(() => Number)

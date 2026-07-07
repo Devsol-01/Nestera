@@ -18,7 +18,7 @@ export class AssetAllocationItemDto {
 }
 
 export class AssetAllocationDto {
-  @ApiProperty({ type: [AssetAllocationItemDto] })
+  @ApiProperty({ type: [AssetAllocationItemDto], example: [{ assetId: 'USDC', amount: 1500, percentage: 62.5 }] })
   allocations: AssetAllocationItemDto[];
 
   @ApiProperty({

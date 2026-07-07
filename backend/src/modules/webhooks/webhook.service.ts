@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -24,6 +25,9 @@ import { UpdateWebhookDto } from './dto/update-webhook.dto';
 const RETRY_DELAYS_MINUTES = [1, 5, 30, 120];
 const MAX_ATTEMPTS = RETRY_DELAYS_MINUTES.length + 1; // 5 total
 
+/** Maximum pending outbound deliveries before new dispatch calls are shed. */
+const DEFAULT_MAX_PENDING_DELIVERIES = 500;
+
 @Injectable()
 export class WebhookService {
   private readonly logger = new Logger(WebhookService.name);
@@ -34,6 +38,7 @@ export class WebhookService {
     @InjectRepository(WebhookDelivery)
     private readonly deliveryRepo: Repository<WebhookDelivery>,
     private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
   ) {}
 
   // ── Registration ──────────────────────────────────────────────────────────
@@ -94,11 +99,29 @@ export class WebhookService {
   /**
    * Fan-out an event to all active subscriptions that match the event name.
    * Matching supports exact names and wildcard patterns (e.g. 'savings.*').
+   *
+   * Applies backpressure: if the number of PENDING outbound deliveries
+   * exceeds `WEBHOOK_MAX_PENDING_DELIVERIES`, the dispatch is shed and a
+   * warning is logged.  Callers should surface this as a 503 on ingest
+   * paths so upstream senders retry later.
    */
   async dispatch(
     eventName: string,
     payload: Record<string, any>,
   ): Promise<void> {
+    const maxPending =
+      this.configService.get<number>('webhook.maxPendingDeliveries') ??
+      DEFAULT_MAX_PENDING_DELIVERIES;
+    const pendingCount = await this.deliveryRepo.count({
+      where: { status: DeliveryStatus.PENDING },
+    });
+    if (pendingCount >= maxPending) {
+      this.logger.warn(
+        `Webhook dispatch shed: queue at capacity (${pendingCount}/${maxPending} pending). Event=${eventName}`,
+      );
+      return;
+    }
+
     const subs = await this.subRepo.find({
       where: { status: WebhookStatus.ACTIVE },
     });
@@ -143,6 +166,8 @@ export class WebhookService {
     const timestamp = Date.now().toString();
 
     try {
+      const deliveryTimeoutMs =
+        this.configService.get<number>('timeouts.webhookDeliveryMs') ?? 10_000;
       const response = await firstValueFrom(
         this.httpService.post(sub.url, body, {
           headers: {
@@ -151,7 +176,7 @@ export class WebhookService {
             'X-Nestera-Timestamp': timestamp,
             'X-Nestera-Event': delivery.eventName,
           },
-          timeout: 10_000,
+          timeout: deliveryTimeoutMs,
           validateStatus: () => true, // don't throw on 4xx/5xx
         }),
       );

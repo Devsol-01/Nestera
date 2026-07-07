@@ -5,6 +5,7 @@ export class ExecuteRebalancingDto {
   @ApiPropertyOptional({
     enum: ['conservative', 'balanced', 'growth'],
     default: 'balanced',
+    example: 'balanced',
   })
   @IsOptional()
   @IsIn(['conservative', 'balanced', 'growth'])

@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CircuitBreaker, CircuitBreakerState } from './circuit-breaker.config';
+import { TestModeService } from '../test-mode/test-mode.service';
 
 export interface DependencyConfig {
   name: string;
@@ -59,6 +60,7 @@ export class ExternalCallService {
   constructor(
     private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
+    @Optional() private readonly testModeService?: TestModeService,
   ) {
     for (const [name, defaults] of Object.entries(DEFAULT_DEPENDENCIES)) {
       this.getOrCreateBreaker(name, defaults);
@@ -70,6 +72,13 @@ export class ExternalCallService {
     fn: () => Promise<T>,
     opts?: Partial<DependencyConfig>,
   ): Promise<T> {
+    if (this.testModeService?.isEnabled) {
+      const stub = this.testModeService.getStub<T>(dependencyName);
+      if (stub !== undefined) {
+        this.logger.debug(`[TestMode] Returning stub for ${dependencyName}`);
+        return stub;
+      }
+    }
     const config = this.resolveConfig(dependencyName, opts);
     const breaker = this.getOrCreateBreaker(dependencyName, config);
 
@@ -115,6 +124,13 @@ export class ExternalCallService {
     fallback: () => T | Promise<T>,
     opts?: Partial<DependencyConfig>,
   ): Promise<T> {
+    if (this.testModeService?.isEnabled) {
+      const stub = this.testModeService.getStub<T>(dependencyName);
+      if (stub !== undefined) {
+        this.logger.debug(`[TestMode] Returning stub for ${dependencyName}`);
+        return stub;
+      }
+    }
     try {
       return await this.execute(dependencyName, fn, opts);
     } catch (error) {

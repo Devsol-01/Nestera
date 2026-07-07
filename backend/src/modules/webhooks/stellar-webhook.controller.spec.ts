@@ -3,14 +3,31 @@ import { StellarWebhookController } from './stellar-webhook.controller';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import * as crypto from 'crypto';
+import { WebhookAllowlistService } from './security/webhook-allowlist.service';
+
+const SENDER_ID_HEADER = 'x-stellar-sender-id';
 
 describe('StellarWebhookController', () => {
   let controller: StellarWebhookController;
   let configService: ConfigService;
+  let allowlistMock: { verify: jest.Mock };
 
   const mockSecret = 'test_webhook_secret_key_123456';
+  const mockPayload = {
+    type: 'payment',
+    transaction_hash: '123...',
+    from: 'GA...',
+    to: 'GB...',
+    amount: '10.0',
+  };
+  const validSignature = crypto
+    .createHmac('sha256', mockSecret)
+    .update(JSON.stringify(mockPayload))
+    .digest('hex');
 
   beforeEach(async () => {
+    allowlistMock = { verify: jest.fn().mockResolvedValue(true) };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [StellarWebhookController],
       providers: [
@@ -19,6 +36,10 @@ describe('StellarWebhookController', () => {
           useValue: {
             get: jest.fn().mockReturnValue(mockSecret),
           },
+        },
+        {
+          provide: WebhookAllowlistService,
+          useValue: allowlistMock,
         },
       ],
     }).compile();
@@ -32,50 +53,54 @@ describe('StellarWebhookController', () => {
   });
 
   describe('handleWebhook', () => {
-    const mockPayload = {
-      type: 'payment',
-      transaction_hash: '123...',
-      from: 'GA...',
-      to: 'GB...',
-      amount: '10.0',
-    };
-    const payloadString = JSON.stringify(mockPayload);
-    const validSignature = crypto
-      .createHmac('sha256', mockSecret)
-      .update(payloadString)
-      .digest('hex');
+    function buildReq() {
+      return {
+        headers: {
+          [SENDER_ID_HEADER]:
+            'GSENDER00000000000000000000000000000000000000000000',
+        },
+      } as any;
+    }
 
-    it('should return 200 and success status for valid signature', async () => {
+    it('returns 200 + success on valid signature AND allowlisted sender', async () => {
       const result = await controller.handleWebhook(
+        buildReq(),
         mockPayload,
         validSignature,
       );
       expect(result).toEqual({ status: 'success' });
-    });
-
-    it('should throw UnauthorizedException for missing signature', async () => {
-      await expect(
-        controller.handleWebhook(mockPayload, undefined),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('should throw UnauthorizedException for invalid signature', async () => {
-      const invalidSignature = 'invalid_signature';
-      await expect(
-        controller.handleWebhook(mockPayload, invalidSignature),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('should handle webhook with different body order', async () => {
-      // Since we use JSON.stringify(payload), the order matters.
-      // In a real scenario, the provider should be consistent or we should sort keys.
-      // For this implementation, we assume the stringified payload matches the signature.
-      const reorderedPayload = { ...mockPayload, amount: '10.0' }; // same order here
-      const result = await controller.handleWebhook(
-        reorderedPayload,
-        validSignature,
+      expect(allowlistMock.verify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          [SENDER_ID_HEADER]: expect.any(String),
+        }),
+        expect.objectContaining({ senderIdHeader: SENDER_ID_HEADER }),
       );
-      expect(result).toEqual({ status: 'success' });
+    });
+
+    it('throws UnauthorizedException for missing signature', async () => {
+      await expect(
+        controller.handleWebhook(buildReq(), mockPayload, undefined),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(allowlistMock.verify).not.toHaveBeenCalled();
+    });
+
+    it('throws UnauthorizedException for invalid signature', async () => {
+      await expect(
+        controller.handleWebhook(buildReq(), mockPayload, 'invalid_signature'),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(allowlistMock.verify).not.toHaveBeenCalled();
+    });
+
+    it('throws when allowlist rejects (after signature was valid)', async () => {
+      allowlistMock.verify.mockRejectedValue(
+        new UnauthorizedException({
+          message: 'Sender is not in the allowlist',
+          code: 'WEBHOOK_ALLOWLIST_UNKNOWN_SENDER',
+        }),
+      );
+      await expect(
+        controller.handleWebhook(buildReq(), mockPayload, validSignature),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 });

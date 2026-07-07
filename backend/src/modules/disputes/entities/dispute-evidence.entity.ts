@@ -75,6 +75,17 @@ export class DisputeEvidence {
   @Column({ type: 'jsonb', nullable: true })
   processingMetadata: Record<string, any> | null;
 
+  /**
+   * Token returned by {@link StorageQuotaService.reserve} when the evidence
+   * upload was accepted. The dispute-evidence processor calls `commit()`
+   * on success or `release()` on failure so the per-user quota ledger
+   * reconciles correctly even when the upload is short-circuited.
+   */
+  @ApiProperty({ nullable: true })
+  @Index()
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  quotaReservationId: string | null;
+
   @ApiProperty()
   @CreateDateColumn()
   createdAt: Date;

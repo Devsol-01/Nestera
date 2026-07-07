@@ -12,6 +12,7 @@ import { IdempotencyInterceptor } from './common/interceptors/idempotency.interc
 import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import { AdminConfirmationInterceptor } from './common/interceptors/admin-confirmation.interceptor';
 import { AdminConfirmationFilter } from './common/filters/admin-confirmation.filter';
+import { StorageQuotaExceptionFilter } from './common/filters/storage-quota-exception.filter';
 import { TieredThrottlerGuard } from './common/guards/tiered-throttler.guard';
 import { AdminConfirmationGuard } from './common/guards/admin-confirmation.guard';
 import { CommonModule } from './common/common.module';
@@ -64,6 +65,7 @@ import { SandboxModule } from './modules/sandbox/sandbox.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { StatisticsModule } from './modules/statistics/statistics.module';
 import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module';
+import { StorageQuotaModule } from './modules/storage-quota/storage-quota.module';
 
 const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'production', 'test').required(),
@@ -106,6 +108,10 @@ const envValidationSchema = Joi.object({
   JWT_SECRET: Joi.string().min(10).required(),
   JWT_EXPIRATION: Joi.string().required(),
 
+  MULTI_TENANT_ENABLED: Joi.boolean().default(false),
+  DEFAULT_TENANT_ID: Joi.string().optional(),
+  DEFAULT_TENANT_SLUG: Joi.string().optional(),
+
   STELLAR_NETWORK: Joi.string().valid('testnet', 'mainnet').default('testnet'),
   SOROBAN_RPC_URL: Joi.string().uri().required(),
   HORIZON_URL: Joi.string().uri().required(),
@@ -144,6 +150,27 @@ const envValidationSchema = Joi.object({
   COMPRESSION_THRESHOLD: Joi.number().integer().min(0).default(1024),
   JSON_BODY_LIMIT: Joi.string().default('1mb'),
   URLENCODED_BODY_LIMIT: Joi.string().default('1mb'),
+
+  TIMEOUT_WEBHOOK_DELIVERY_MS: Joi.number().integer().min(1000).default(10000),
+  TIMEOUT_WEBHOOK_INGEST_MS: Joi.number().integer().min(500).default(5000),
+  TIMEOUT_HTTP_CLIENT_MS: Joi.number().integer().min(1000).default(15000),
+  WEBHOOK_MAX_PENDING_DELIVERIES: Joi.number().integer().min(1).default(500),
+  WEBHOOK_INGEST_RATE_LIMIT_PER_MINUTE: Joi.number()
+    .integer()
+    .min(1)
+    .default(30),
+  WEBHOOK_MAX_INGEST_QUEUE_DEPTH: Joi.number().integer().min(1).default(1000),
+
+  IDEMPOTENCY_CLEANUP_ENABLED: Joi.boolean().default(true),
+  IDEMPOTENCY_CLEANUP_CRON: Joi.string()
+    .regex(/^(\S+\s+){4}\S+$/)
+    .default('0 * * * *'),
+  IDEMPOTENCY_CLEANUP_BATCH_SIZE: Joi.number().integer().min(1).default(500),
+  IDEMPOTENCY_CLEANUP_SCAN_COUNT: Joi.number().integer().min(1).default(200),
+  IDEMPOTENCY_CLEANUP_LOCK_TTL_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .default(120000),
 });
 
 @Module({
@@ -338,6 +365,7 @@ const envValidationSchema = Joi.object({
     SandboxModule,
     FeedbackModule,
     CommonModule,
+    StorageQuotaModule,
     ThrottlerModule.forRoot([
       {
         name: 'default',
@@ -347,6 +375,20 @@ const envValidationSchema = Joi.object({
       {
         name: 'auth',
         ttl: 15 * 60 * 1000, // 15 minutes
+        limit: 5,
+      },
+      {
+        // OTP / 2FA verification attempts — deliberately strict to resist
+        // brute-force attacks on one-time codes.
+        name: 'otp',
+        ttl: 15 * 60 * 1000, // 15 minutes
+        limit: 3,
+      },
+      {
+        // Wallet-linking is an infrequent, sensitive operation.
+        // 5 attempts per hour per user prevents automated wallet-spam.
+        name: 'wallet-link',
+        ttl: 60 * 60 * 1000, // 1 hour
         limit: 5,
       },
       {
@@ -368,11 +410,28 @@ const envValidationSchema = Joi.object({
         limit: 10,
       },
       {
+        // Upload endpoints (avatar / KYC documents / dispute evidence /
+        // feedback screenshots). Per-tier cap is enforced by TieredThrottlerGuard;
+        // this top-level limit exists as a safety floor for anonymous traffic.
+        name: 'upload',
+        ttl: 60_000, // 1 minute
+        limit: 5,
+      },
+      {
         // Admin high-risk endpoints require confirmation and tight throttling.
         // Intentionally restrictive: 2 requests per 5 minutes per admin.
         name: 'admin-high-risk',
         ttl: 5 * 60 * 1000, // 5 minutes
         limit: 2,
+      },
+      {
+        // Inbound webhook ingest (e.g. /webhooks/stellar).
+        // 30 requests per minute per sender/IP — tight enough to defeat
+        // spam floods but generous enough to allow legitimate bursts.
+        // Tune via WEBHOOK_INGEST_RATE_LIMIT_PER_MINUTE env var.
+        name: 'webhook-ingest',
+        ttl: 60_000, // 1 minute
+        limit: 30,
       },
     ]),
   ],
@@ -391,6 +450,10 @@ const envValidationSchema = Joi.object({
     {
       provide: APP_FILTER,
       useClass: AdminConfirmationFilter,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: StorageQuotaExceptionFilter,
     },
     {
       provide: APP_INTERCEPTOR,
@@ -425,7 +488,11 @@ const envValidationSchema = Joi.object({
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-      .apply(CorrelationIdMiddleware, CompressionMetricsMiddleware)
+      .apply(
+        CorrelationIdMiddleware,
+        CompressionMetricsMiddleware,
+        TenantContextMiddleware,
+      )
       .forRoutes('*');
   }
 }

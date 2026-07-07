@@ -12,74 +12,74 @@ import {
 } from '../../../common/entities/audit-log.entity';
 
 export class AuditLogFilterDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716-446655440000' })
   @IsOptional()
   @IsString()
   actor?: string;
 
-  @ApiPropertyOptional({ enum: AuditAction })
+  @ApiPropertyOptional({ enum: AuditAction, example: 'UPDATE' })
   @IsOptional()
   @IsEnum(AuditAction)
   action?: AuditAction;
 
-  @ApiPropertyOptional({ enum: AuditResourceType })
+  @ApiPropertyOptional({ enum: AuditResourceType, example: 'USER' })
   @IsOptional()
   @IsEnum(AuditResourceType)
   resourceType?: AuditResourceType;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716-446655440001' })
   @IsOptional()
   @IsString()
   resourceId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2024-01-01T00:00:00.000Z' })
   @IsOptional()
   @IsDateString()
   fromDate?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2024-12-31T23:59:59.999Z' })
   @IsOptional()
   @IsDateString()
   toDate?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @IsNumber()
   page?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 50 })
   @IsOptional()
   @IsNumber()
   limit?: number;
 }
 
 export class AuditLogExportDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716-446655440000' })
   @IsOptional()
   @IsString()
   actor?: string;
 
-  @ApiPropertyOptional({ enum: AuditAction })
+  @ApiPropertyOptional({ enum: AuditAction, example: 'DELETE' })
   @IsOptional()
   @IsEnum(AuditAction)
   action?: AuditAction;
 
-  @ApiPropertyOptional({ enum: AuditResourceType })
+  @ApiPropertyOptional({ enum: AuditResourceType, example: 'CLAIM' })
   @IsOptional()
   @IsEnum(AuditResourceType)
   resourceType?: AuditResourceType;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716-446655440002' })
   @IsOptional()
   @IsString()
   resourceId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2024-01-01T00:00:00.000Z' })
   @IsOptional()
   @IsDateString()
   fromDate?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2024-12-31T23:59:59.999Z' })
   @IsOptional()
   @IsDateString()
   toDate?: string;
@@ -87,6 +87,7 @@ export class AuditLogExportDto {
   @ApiPropertyOptional({
     description: 'Format for export',
     enum: ['csv', 'json'],
+    example: 'csv',
   })
   @IsOptional()
   @IsString()

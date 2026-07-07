@@ -57,6 +57,9 @@ export class Transaction extends BaseEntity {
   @Column('uuid')
   userId: string;
 
+  @Column('uuid', { nullable: true })
+  tenantId: string | null;
+
   @Column({ type: 'enum', enum: TxType })
   type: TxType;
 

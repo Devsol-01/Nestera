@@ -58,36 +58,36 @@ export class RiskMetricsDto {
 }
 
 export class SimilarProductDto {
-  @ApiProperty({ description: 'Product UUID' })
+  @ApiProperty({ description: 'Product UUID', example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' })
   id: string;
 
-  @ApiProperty({ description: 'Product name' })
+  @ApiProperty({ description: 'Product name', example: 'Flexible Saver' })
   name: string;
 
-  @ApiProperty({ description: 'Current APY (%)' })
+  @ApiProperty({ description: 'Current APY (%)', example: 6.0 })
   apy: number;
 
-  @ApiProperty({ description: 'Current TVL' })
+  @ApiProperty({ description: 'Current TVL', example: 1250000 })
   tvl: number;
 
-  @ApiProperty({ description: 'Risk level' })
+  @ApiProperty({ description: 'Risk level', example: 'low' })
   riskLevel: string;
 }
 
 export class ProductMetricsDto {
-  @ApiProperty({ description: 'Product UUID' })
+  @ApiProperty({ description: 'Product UUID', example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' })
   productId: string;
 
-  @ApiProperty({ description: 'Product name' })
+  @ApiProperty({ description: 'Product name', example: 'Flexible Saver' })
   productName: string;
 
-  @ApiProperty({ description: 'Current APY (%)' })
+  @ApiProperty({ description: 'Current APY (%)', example: 6.0 })
   currentApy: number;
 
-  @ApiProperty({ description: 'Current TVL' })
+  @ApiProperty({ description: 'Current TVL', example: 1250000 })
   currentTvl: number;
 
-  @ApiProperty({ description: 'Total active subscribers' })
+  @ApiProperty({ description: 'Total active subscribers', example: 250 })
   totalSubscribers: number;
 
   @ApiProperty({
@@ -119,6 +119,7 @@ export class ProductMetricsDto {
 
   @ApiPropertyOptional({
     description: 'ISO timestamp when this response was cached',
+    example: '2026-03-29T14:00:00.000Z',
   })
   cachedAt?: string;
 }

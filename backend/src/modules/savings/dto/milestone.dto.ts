@@ -26,36 +26,25 @@ export class CreateCustomMilestoneDto {
 }
 
 export class MilestoneResponseDto {
-  @ApiProperty()
-  id: string;
+  @ApiProperty({ example: 'a1b2c3d4-1234-5678-90ab-cdef01234567' }) id: string;
 
-  @ApiProperty()
-  goalId: string;
+  @ApiProperty({ example: 'b2c3d4e5-1234-5678-90ab-cdef01234568' }) goalId: string;
 
-  @ApiProperty()
-  userId: string;
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' }) userId: string;
 
-  @ApiProperty()
-  percentage: number;
+  @ApiProperty({ example: 33 }) percentage: number;
 
-  @ApiProperty()
-  label: string;
+  @ApiProperty({ example: 'One-third of the way there!' }) label: string;
 
-  @ApiProperty({ enum: MilestoneType })
-  type: MilestoneType;
+  @ApiProperty({ enum: MilestoneType, example: MilestoneType.CUSTOM }) type: MilestoneType;
 
-  @ApiProperty()
-  achieved: boolean;
+  @ApiProperty({ example: false }) achieved: boolean;
 
-  @ApiProperty({ nullable: true })
-  achievedAt: Date | null;
+  @ApiProperty({ nullable: true, example: '2026-06-15T10:00:00.000Z' }) achievedAt: Date | null;
 
-  @ApiProperty()
-  bonusPoints: number;
+  @ApiProperty({ example: 100 }) bonusPoints: number;
 
-  @ApiProperty()
-  createdAt: Date;
+  @ApiProperty({ example: '2026-03-15T10:00:00.000Z' }) createdAt: Date;
 
-  @ApiProperty()
-  updatedAt: Date;
+  @ApiProperty({ example: '2026-03-29T14:00:00.000Z' }) updatedAt: Date;
 }

@@ -2,6 +2,7 @@
 target
 
 /node_modules
+sdk/node_modules/
 
 # Local settings
 .soroban

@@ -6,7 +6,7 @@ import {
 } from '../entities/kyc-document.entity';
 
 export class UploadKycDocumentDto {
-  @ApiProperty({ enum: KycDocumentType })
+  @ApiProperty({ enum: KycDocumentType, example: KycDocumentType.PASSPORT })
   @IsEnum(KycDocumentType)
   documentType!: KycDocumentType;
 }
@@ -14,11 +14,12 @@ export class UploadKycDocumentDto {
 export class ReviewKycDocumentDto {
   @ApiProperty({
     enum: [KycDocumentStatus.APPROVED, KycDocumentStatus.REJECTED],
+    example: KycDocumentStatus.APPROVED,
   })
   @IsIn([KycDocumentStatus.APPROVED, KycDocumentStatus.REJECTED])
   status!: KycDocumentStatus.APPROVED | KycDocumentStatus.REJECTED;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Document image is blurry and unreadable' })
   @IsOptional()
   @IsString()
   @MaxLength(1000)

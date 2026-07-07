@@ -24,7 +24,9 @@ import {
 import { Response } from 'express';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { CorrelationId } from '../../common/decorators/correlation-id.decorator';
 import { JobQueueService } from '../job-queue/job-queue.service';
+import { AsyncResponseBuilder } from '../../common/dto';
 
 @ApiTags('reports')
 @Controller('reports')
@@ -69,24 +71,33 @@ export class ReportsController {
     @Query('format') format = 'csv',
     @Query('irs1099') irs1099 = 'false',
     @CurrentUser() user: any,
+    @CorrelationId() correlationId?: string,
   ) {
     const year = Number(yearParam);
     if (!user || !user.id)
       throw new BadRequestException('authenticated user required');
     if (Number.isNaN(year)) throw new BadRequestException('invalid year');
 
-    const job = await this.jobQueueService.addReportJob({
-      reportType: 'tax',
-      userId: user.id,
-      params: { year, format, irs1099: irs1099 === 'true' },
-    });
+    const job = await this.jobQueueService.addReportJob(
+      {
+        reportType: 'tax',
+        userId: user.id,
+        params: { year, format, irs1099: irs1099 === 'true' },
+      },
+      undefined,
+      correlationId,
+    );
 
-    return {
-      success: true,
-      statusCode: 202,
-      message: 'Report generation queued',
-      data: { jobId: job.id },
-    };
+    return new AsyncResponseBuilder(
+      job.id,
+      `/reports/jobs/${job.id}/status`,
+    )
+      .setMessage('Tax report generation queued successfully')
+      .setRetryAfterSeconds(10)
+      .setOperationType('report-generation')
+      .setStatus('pending')
+      .setMetadata({ reportType: 'tax', year, format })
+      .build();
   }
 
   @Post('schedules')

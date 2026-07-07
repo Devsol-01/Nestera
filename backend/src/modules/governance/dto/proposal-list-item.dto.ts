@@ -8,36 +8,38 @@ export class ProposalTimelineDto {
   @ApiProperty({
     description: 'Proposal start boundary as UNIX block number',
     nullable: true,
+    example: 123456,
   })
   startTime: number | null;
 
   @ApiProperty({
     description: 'Proposal end boundary as UNIX block number',
     nullable: true,
+    example: 124000,
   })
   endTime: number | null;
 }
 
 export class ProposalListItemDto {
-  @ApiProperty()
+  @ApiProperty({ example: '8a7b3c1d-2e4f-5a6b-7c8d-9e0f1a2b3c4d' })
   id: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 42 })
   onChainId: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'Increase Flexi Rate by 10%' })
   title: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Proposal to raise the flexible savings rate' })
   description: string | null;
 
-  @ApiProperty({ enum: ProposalCategory })
+  @ApiProperty({ enum: ProposalCategory, example: ProposalCategory.TREASURY })
   category: ProposalCategory;
 
-  @ApiProperty({ enum: ProposalStatus })
+  @ApiProperty({ enum: ProposalStatus, example: ProposalStatus.ACTIVE })
   status: ProposalStatus;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN' })
   proposer: string | null;
 
   @ApiProperty({
@@ -58,6 +60,6 @@ export class ProposalListItemDto {
   })
   abstainPercent: number;
 
-  @ApiProperty({ type: () => ProposalTimelineDto })
+  @ApiProperty({ type: () => ProposalTimelineDto, example: { startTime: 123456, endTime: 124000 } })
   timeline: ProposalTimelineDto;
 }

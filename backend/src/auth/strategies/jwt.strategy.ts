@@ -23,12 +23,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     email: string;
     role?: string;
     kycStatus?: string;
+    tenantId?: string;
+    tenantSlug?: string;
   }) {
     return {
       id: payload.sub,
       email: payload.email,
       role: payload.role ?? 'USER',
       kycStatus: payload.kycStatus ?? 'NOT_SUBMITTED',
+      tenantId: payload.tenantId,
+      tenantSlug: payload.tenantSlug,
     };
   }
 }

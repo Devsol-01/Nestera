@@ -46,8 +46,9 @@ export class TransactionsController {
   @ApiOperation({
     summary: 'Get paginated transaction history for authenticated user',
     description:
-      'Returns a paginated list of transactions with robust filtering by type, date range, and pool ID. ' +
-      'Dates are formatted for frontend display to minimize client-side dependencies.',
+      'Returns a paginated list of transactions with server-side filtering by type, date range, pool ID, and free-text search. ' +
+      'Search terms use relevance ranking for hashes, memos, reference IDs, and descriptions, then apply deterministic ordering for ties. ' +
+      'Search requests are bounded for execution time and capped for result size.',
   })
   @ApiResponse({
     status: 200,
@@ -243,7 +244,7 @@ export class TransactionsController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
     const pdfBuffer = await this.receiptService.generateReceipt(user.id, id);
-    
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
@@ -277,7 +278,7 @@ export class TransactionsController {
       id,
       accessKey,
     );
-    
+
     res.setHeader('Content-Type', contentType);
     res.setHeader(
       'Content-Disposition',

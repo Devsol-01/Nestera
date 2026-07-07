@@ -118,5 +118,78 @@ describe('TieredThrottlerGuard', () => {
         expect(limits.ttl).toBeGreaterThan(0);
       }
     });
+
+    it('should have OTP limits for all tiers', () => {
+      for (const tier of Object.values(UserTier)) {
+        const limits = TieredThrottlerGuard.getLimitsForTier(tier, 'otp');
+        expect(limits.limit).toBeGreaterThan(0);
+        expect(limits.ttl).toBeGreaterThan(0);
+      }
+    });
+
+    it('should have wallet-link limits for all tiers', () => {
+      for (const tier of Object.values(UserTier)) {
+        const limits = TieredThrottlerGuard.getLimitsForTier(
+          tier,
+          'wallet-link',
+        );
+        expect(limits.limit).toBeGreaterThan(0);
+        expect(limits.ttl).toBeGreaterThan(0);
+      }
+    });
+
+    it('should apply strictest OTP limit (3) for FREE tier', () => {
+      const limits = TieredThrottlerGuard.getLimitsForTier(
+        UserTier.FREE,
+        'otp',
+      );
+      expect(limits.limit).toBe(3);
+      expect(limits.ttl).toBe(15 * 60 * 1000);
+    });
+
+    it('should apply strictest wallet-link limit (3) for FREE tier', () => {
+      const limits = TieredThrottlerGuard.getLimitsForTier(
+        UserTier.FREE,
+        'wallet-link',
+      );
+      expect(limits.limit).toBe(3);
+      expect(limits.ttl).toBe(60 * 60 * 1000);
+    });
+
+    it('should apply higher OTP limit for ADMIN tier', () => {
+      const freeLimits = TieredThrottlerGuard.getLimitsForTier(
+        UserTier.FREE,
+        'otp',
+      );
+      const adminLimits = TieredThrottlerGuard.getLimitsForTier(
+        UserTier.ADMIN,
+        'otp',
+      );
+      expect(adminLimits.limit).toBeGreaterThan(freeLimits.limit);
+    });
+
+    it('should not allow admin-high-risk for non-admin tiers', () => {
+      const nonAdminTiers = [
+        UserTier.FREE,
+        UserTier.VERIFIED,
+        UserTier.PREMIUM,
+        UserTier.ENTERPRISE,
+      ];
+      for (const tier of nonAdminTiers) {
+        const limits = TieredThrottlerGuard.getLimitsForTier(
+          tier,
+          'admin-high-risk',
+        );
+        expect(limits.limit).toBe(0);
+      }
+    });
+
+    it('should allow admin-high-risk only for ADMIN tier', () => {
+      const limits = TieredThrottlerGuard.getLimitsForTier(
+        UserTier.ADMIN,
+        'admin-high-risk',
+      );
+      expect(limits.limit).toBeGreaterThan(0);
+    });
   });
 });

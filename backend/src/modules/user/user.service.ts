@@ -11,12 +11,17 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateSweepSettingsDto } from './dto/update-sweep-settings.dto';
 import { SweepSettingsDto } from './dto/sweep-settings.dto';
 import { UserProfileResponseDto } from './dto/user-profile-response.dto';
-
+import { AuditLogService } from '../../common/services/audit-log.service';
+import {
+  AuditAction,
+  AuditResourceType,
+} from '../../common/entities/audit-log.entity';
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async findById(id: string) {
@@ -276,8 +281,36 @@ export class UserService {
 
   async remove(id: string) {
     const user = await this.findById(id);
+    const previousValue = { ...user };
 
-    await this.userRepository.remove(user);
+    const anonymizedEmail = `deleted-${user.id}@anonymized.local`;
+
+    await this.userRepository.update(id, {
+      email: anonymizedEmail,
+      name: 'Deleted User',
+      password: null,
+      publicKey: null,
+      walletAddress: null,
+      bio: '',
+      avatarUrl: null,
+      kycDocumentUrl: null,
+      kycStatus: 'NOT_SUBMITTED',
+      kycRejectionReason: null,
+      twoFactorEnabled: false,
+      twoFactorSecret: null,
+      twoFactorBackupCodes: null,
+      isActive: false,
+    });
+
+    await this.auditLogService.log({
+      action: AuditAction.DELETE,
+      resourceType: AuditResourceType.USER,
+      resourceId: id,
+      actor: id,
+      description: 'GDPR-friendly user data deletion and anonymization',
+      previousValue,
+      newValue: { isActive: false, email: anonymizedEmail },
+    });
 
     return { message: 'User deleted successfully' };
   }

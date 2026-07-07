@@ -30,4 +30,6 @@ export interface StorageProvider {
       ownerId?: string;
     },
   ): Promise<string>;
+
+  listAll(): Promise<{ key: string; lastModified: Date }[]>;
 }

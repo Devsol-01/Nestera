@@ -22,6 +22,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AdminHighRisk } from '../../common/decorators/admin-high-risk.decorator';
 import { Role } from '../../common/enums/role.enum';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import { AdminUsersService } from './admin-users.service';
 import { AdminUsersQueryDto } from './dto/admin-users-query.dto';
 import {
@@ -60,6 +61,7 @@ export class AdminUsersController {
 
   @Patch(':id/role')
   @AdminHighRisk()
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary: 'Update user role',
     description: 'High-risk operation. Requires confirmation on first attempt.',
@@ -74,6 +76,7 @@ export class AdminUsersController {
 
   @Patch(':id/status')
   @AdminHighRisk()
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary: 'Activate or deactivate a user account',
     description: 'High-risk operation. Requires confirmation on first attempt.',
@@ -89,6 +92,7 @@ export class AdminUsersController {
   @Post('bulk-action')
   @AdminHighRisk()
   @HttpCode(HttpStatus.OK)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary: 'Bulk activate/deactivate/email/export users',
     description: 'High-risk operation. Requires confirmation on first attempt.',

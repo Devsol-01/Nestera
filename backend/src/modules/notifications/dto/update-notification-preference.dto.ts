@@ -16,105 +16,105 @@ import {
 
 export class UpdateUserPreferenceDto {
   // Channel preferences
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   emailNotifications?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   inAppNotifications?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   pushNotifications?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()
   smsNotifications?: boolean;
 
-  @ApiPropertyOptional({ enum: PreferredContactChannel })
+  @ApiPropertyOptional({ enum: PreferredContactChannel, example: PreferredContactChannel.EMAIL })
   @IsOptional()
   @IsEnum(PreferredContactChannel)
   preferredContactChannel?: PreferredContactChannel;
 
   // Notification type preferences
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   depositNotifications?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   withdrawalNotifications?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   goalNotifications?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   governanceNotifications?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()
   marketingNotifications?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   sweepNotifications?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   claimNotifications?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   yieldNotifications?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   milestoneNotifications?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   newsletterSubscribed?: boolean;
 
   // Privacy preferences
-  @ApiPropertyOptional({ enum: ProfileVisibility })
+  @ApiPropertyOptional({ enum: ProfileVisibility, example: ProfileVisibility.FRIENDS })
   @IsOptional()
   @IsEnum(ProfileVisibility)
   profileVisibility?: ProfileVisibility;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   dataSharingEnabled?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()
   personalizedAds?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   locationSharing?: boolean;
 
   // Display preferences
-  @ApiPropertyOptional({ enum: ThemePreference })
+  @ApiPropertyOptional({ enum: ThemePreference, example: ThemePreference.LIGHT })
   @IsOptional()
   @IsEnum(ThemePreference)
   theme?: ThemePreference;
@@ -135,23 +135,23 @@ export class UpdateUserPreferenceDto {
   })
   currency?: string;
 
-  @ApiPropertyOptional({ enum: DateFormatPreference })
+  @ApiPropertyOptional({ enum: DateFormatPreference, example:DateFormatPreference.MM_DD_YYYY })
   @IsOptional()
   @IsEnum(DateFormatPreference)
   dateFormat?: DateFormatPreference;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()
   compactLayout?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   displayBalancesInFiat?: boolean;
 
   // Quiet hours
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   quietHoursEnabled?: boolean;
@@ -178,7 +178,7 @@ export class UpdateUserPreferenceDto {
   timezone?: string;
 
   // Digest frequency
-  @ApiPropertyOptional({ enum: DigestFrequency })
+  @ApiPropertyOptional({ enum: DigestFrequency, example: DigestFrequency.DAILY })
   @IsOptional()
   @IsEnum(DigestFrequency)
   digestFrequency?: DigestFrequency;

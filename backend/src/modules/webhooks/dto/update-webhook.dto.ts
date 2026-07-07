@@ -39,7 +39,10 @@ export class UpdateWebhookDto {
   @MaxLength(256)
   secret?: string;
 
-  @ApiPropertyOptional({ description: 'Updated description' })
+  @ApiPropertyOptional({
+    description: 'Updated description',
+    example: 'Production deposit notifications v2',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(500)

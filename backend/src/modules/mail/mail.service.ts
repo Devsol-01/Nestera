@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import { ConfigService } from '@nestjs/config';
 import { createTransport } from 'nodemailer';
+import { TestModeService } from '../../common/test-mode/test-mode.service';
 
 export interface MailTransport {
   name: string;
@@ -33,6 +34,7 @@ export class MailService {
   constructor(
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
+    @Optional() private readonly testModeService?: TestModeService,
     private readonly mailTransportFactory?: MailTransportFactory,
   ) {
     this.defaultFrom =
@@ -369,6 +371,22 @@ export class MailService {
   private async sendMailWithResilience(
     options: Record<string, unknown>,
   ): Promise<void> {
+    // In test mode, capture the email instead of actually sending it,
+    // and skip the provider/retry machinery entirely.
+    if (this.testModeService?.isEnabled) {
+      this.testModeService.captureEmail({
+        to: options.to as string,
+        subject: options.subject as string,
+        text: options.text as string | undefined,
+        template: options.template as string | undefined,
+        context: options.context as Record<string, unknown> | undefined,
+        attachments: options.attachments as
+          | { filename: string; content: Buffer }[]
+          | undefined,
+      });
+      return;
+    }
+
     const providers = this.mailTransportFactory
       ? this.mailTransportFactory()
       : this.buildDefaultTransports();

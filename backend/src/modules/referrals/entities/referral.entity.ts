@@ -31,6 +31,9 @@ export class Referral {
   @Column('uuid')
   referrerId: string;
 
+  @Column('uuid', { nullable: true })
+  tenantId: string | null;
+
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'referrerId' })
   referrer: User;

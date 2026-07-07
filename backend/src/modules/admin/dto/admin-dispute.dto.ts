@@ -6,41 +6,41 @@ import {
 } from '../../disputes/entities/dispute.entity';
 
 export class DisputeFilterDto {
-  @ApiPropertyOptional({ enum: DisputeStatus })
+  @ApiPropertyOptional({ enum: DisputeStatus, example: 'OPEN' })
   @IsOptional()
   @IsEnum(DisputeStatus)
   status?: DisputeStatus;
 
-  @ApiPropertyOptional({ enum: DisputePriority })
+  @ApiPropertyOptional({ enum: DisputePriority, example: 'HIGH' })
   @IsOptional()
   @IsEnum(DisputePriority)
   priority?: DisputePriority;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716-446655440000' })
   @IsOptional()
   @IsString()
   assignedTo?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2024-01-01T00:00:00.000Z' })
   @IsOptional()
   @IsString()
   fromDate?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2024-12-31T23:59:59.999Z' })
   @IsOptional()
   @IsString()
   toDate?: string;
 }
 
 export class AssignDisputeDto {
-  @ApiProperty({ description: 'Admin ID to assign the dispute to' })
+  @ApiProperty({ description: 'Admin ID to assign the dispute to', example: '550e8400-e29b-41d4-a716-446655440000' })
   @IsString()
   @IsNotEmpty()
   assignedTo: string;
 }
 
 export class ResolveDisputeDto {
-  @ApiProperty({ description: 'Resolution details' })
+  @ApiProperty({ description: 'Resolution details', example: 'Dispute resolved after reviewing provided evidence. Claim approved.' })
   @IsString()
   @IsNotEmpty()
   resolution: string;
@@ -48,6 +48,7 @@ export class ResolveDisputeDto {
   @ApiPropertyOptional({
     enum: DisputeStatus,
     description: 'Final status after resolution',
+    example: 'RESOLVED',
   })
   @IsOptional()
   @IsEnum(DisputeStatus)
@@ -67,24 +68,25 @@ export class EscalateDisputeDto {
 }
 
 export class AddEvidenceDto {
-  @ApiProperty({ description: 'Evidence/document name' })
+  @ApiProperty({ description: 'Evidence/document name', example: 'medical_report_2024.pdf' })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ description: 'URL to the evidence/document' })
+  @ApiProperty({ description: 'URL to the evidence/document', example: 'https://cdn.example.com/evidence/medical_report_2024.pdf' })
   @IsString()
   @IsNotEmpty()
   url: string;
 
   @ApiPropertyOptional({
     description: 'Type of evidence (e.g., document, image, pdf)',
+    example: 'pdf',
   })
   @IsOptional()
   @IsString()
   type?: string;
 
-  @ApiPropertyOptional({ description: 'Description of the evidence' })
+  @ApiPropertyOptional({ description: 'Description of the evidence', example: 'Medical report confirming treatment received' })
   @IsOptional()
   @IsString()
   description?: string;

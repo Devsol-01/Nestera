@@ -23,6 +23,9 @@ export class UserSubscription {
   @Column('uuid')
   userId: string;
 
+  @Column('uuid', { nullable: true })
+  tenantId: string | null;
+
   @Column('uuid')
   productId: string;
 

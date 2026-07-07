@@ -91,52 +91,52 @@ export class CreateChallengeDto {
 }
 
 export class UpdateChallengeDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Updated Savings Streak' })
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Deposit at least $10 every day for 7 consecutive days' })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ enum: ChallengeStatus })
+  @ApiPropertyOptional({ enum: ChallengeStatus, example: ChallengeStatus.ACTIVE })
   @IsOptional()
   @IsEnum(ChallengeStatus)
   status?: ChallengeStatus;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2026-07-01T00:00:00.000Z' })
   @IsOptional()
   @IsDateString()
   startDate?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2026-07-08T00:00:00.000Z' })
   @IsOptional()
   @IsDateString()
   endDate?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: { type: 'badge', value: 'Streak Master', metadata: { points: 100 } } })
   @IsOptional()
   @IsObject()
   rewardConfiguration?: RewardConfiguration;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: { requiredStreakDays: 7, minimumDepositAmount: 10 } })
   @IsOptional()
   @IsObject()
   rules?: ChallengeRules;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'https://example.com/badge.png' })
   @IsOptional()
   @IsString()
   imageUrl?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: true })
   @IsOptional()
   @IsBoolean()
   isVisible?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()
   isFeatured?: boolean;
@@ -145,6 +145,7 @@ export class UpdateChallengeDto {
 export class JoinChallengeDto {
   @ApiPropertyOptional({
     description: 'Optional metadata for joining the challenge',
+    example: { motivation: 'Improve saving habits' },
   })
   @IsOptional()
   @IsObject()
@@ -152,7 +153,7 @@ export class JoinChallengeDto {
 }
 
 export class GetActiveChallengesQueryDto {
-  @ApiPropertyOptional({ enum: ChallengeType })
+  @ApiPropertyOptional({ enum: ChallengeType, example: ChallengeType.DEPOSIT_STREAK })
   @IsOptional()
   @IsEnum(ChallengeType)
   type?: ChallengeType;
@@ -185,62 +186,63 @@ export class GetActiveChallengesQueryDto {
 }
 
 export class ChallengeResponseDto {
-  @ApiProperty()
+  @ApiProperty({ example: 'challenge-550e8400-e29b-41d4-a716-446655440000' })
   id!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: '7-Day Savings Streak' })
   name!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'Deposit at least $10 every day for 7 consecutive days' })
   description!: string;
 
-  @ApiProperty({ enum: ChallengeType })
+  @ApiProperty({ enum: ChallengeType, example: ChallengeType.DEPOSIT_STREAK })
   type!: ChallengeType;
 
-  @ApiProperty({ enum: ChallengeStatus })
+  @ApiProperty({ enum: ChallengeStatus, example: ChallengeStatus.ACTIVE })
   status!: ChallengeStatus;
 
-  @ApiProperty()
+  @ApiProperty({ example: '2026-07-01T00:00:00.000Z' })
   startDate!: Date;
 
-  @ApiProperty()
+  @ApiProperty({ example: '2026-07-08T00:00:00.000Z' })
   endDate!: Date;
 
-  @ApiProperty()
+  @ApiProperty({ example: { type: 'badge', value: 'Streak Master', metadata: { points: 100 } } })
   rewardConfiguration!: RewardConfiguration;
 
-  @ApiProperty()
+  @ApiProperty({ example: { requiredStreakDays: 7, minimumDepositAmount: 10 } })
   rules!: ChallengeRules;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'https://example.com/badge.png' })
   imageUrl?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Streak Master' })
   badgeName?: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 150 })
   participantCount!: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: 80 })
   completionCount!: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'savings' })
   category?: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: ['streak', 'deposit', 'beginner'] })
   tags!: string[];
 
-  @ApiProperty()
+  @ApiProperty({ example: true })
   isFeatured!: boolean;
 
-  @ApiProperty()
+  @ApiProperty({ example: '2026-06-29T10:00:00.000Z' })
   createdAt!: Date;
 
-  @ApiProperty()
+  @ApiProperty({ example: '2026-06-29T12:00:00.000Z' })
   updatedAt!: Date;
 
   @ApiPropertyOptional({
     description: 'User participation status (only if authenticated)',
+    example: { joined: true, status: 'in_progress', progressPercentage: 57, joinedAt: '2026-07-03T10:00:00.000Z' },
   })
   userParticipation?: {
     joined: boolean;
@@ -251,30 +253,30 @@ export class ChallengeResponseDto {
 }
 
 export class UserChallengeResponseDto {
-  @ApiProperty()
+  @ApiProperty({ example: 'uc-550e8400-e29b-41d4-a716-446655440000' })
   id!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440001' })
   userId!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'challenge-550e8400-e29b-41d4-a716-446655440000' })
   challengeId!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'in_progress' })
   status!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 57 })
   progressPercentage!: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: { streakDays: 4, totalDeposits: 4 } })
   progressMetadata!: Record<string, any>;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2026-07-07T12:00:00.000Z' })
   completedAt?: Date;
 
-  @ApiProperty()
+  @ApiProperty({ example: '2026-07-01T10:00:00.000Z' })
   joinedAt!: Date;
 
-  @ApiProperty()
+  @ApiProperty({ type: ChallengeResponseDto, example: { id: 'challenge-550e8400-e29b-41d4-a716-446655440000', name: '7-Day Savings Streak', description: 'Deposit at least $10 every day for 7 consecutive days', type: 'deposit_streak', status: 'active', startDate: '2026-07-01T00:00:00.000Z', endDate: '2026-07-08T00:00:00.000Z', participantCount: 150, completionCount: 80, tags: ['streak', 'deposit', 'beginner'], isFeatured: true, createdAt: '2026-06-29T10:00:00.000Z', updatedAt: '2026-06-29T12:00:00.000Z' } })
   challenge!: ChallengeResponseDto;
 }

@@ -8,6 +8,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import { ClaimsService } from './claims.service';
 import { CreateClaimDto } from './dto/create-claim.dto';
 import { MedicalClaim } from './entities/medical-claim.entity';
@@ -19,6 +20,7 @@ export class ClaimsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Submit a new medical claim' })
   @ApiBody({ type: CreateClaimDto })
   @ApiResponse({
@@ -58,6 +60,7 @@ export class ClaimsController {
 
   @Post(':id/verify')
   @HttpCode(HttpStatus.OK)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Verify claim with hospital' })
   @ApiResponse({
     status: 200,

@@ -5,6 +5,7 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
@@ -103,5 +104,38 @@ export class S3StorageProvider implements StorageProvider {
   static buildKey(originalName: string, prefix = 'files'): string {
     const ext = extname(originalName);
     return `${prefix}/${randomUUID()}${ext}`;
+  }
+
+  async listAll(): Promise<{ key: string; lastModified: Date }[]> {
+    const files: { key: string; lastModified: Date }[] = [];
+    let isTruncated = true;
+    let continuationToken: string | undefined;
+
+    while (isTruncated) {
+      const command = new ListObjectsV2Command({
+        Bucket: this.bucket,
+        ContinuationToken: continuationToken,
+      });
+
+      try {
+        const response = await this.s3.send(command);
+        
+        if (response.Contents) {
+          for (const item of response.Contents) {
+            if (item.Key && item.LastModified) {
+              files.push({ key: item.Key, lastModified: item.LastModified });
+            }
+          }
+        }
+        
+        isTruncated = response.IsTruncated ?? false;
+        continuationToken = response.NextContinuationToken;
+      } catch (error) {
+        console.error('Failed to list S3 objects:', error);
+        break;
+      }
+    }
+
+    return files;
   }
 }

@@ -32,7 +32,7 @@ export class CreateFlagDto {
   @IsNotEmpty()
   defaultValue: boolean | string | number;
 
-  @ApiProperty({ enum: ['boolean', 'string', 'number', 'rollout'] })
+  @ApiProperty({ enum: ['boolean', 'string', 'number', 'rollout'], example: 'boolean' })
   @IsEnum(['boolean', 'string', 'number', 'rollout'])
   type: 'boolean' | 'string' | 'number' | 'rollout';
 

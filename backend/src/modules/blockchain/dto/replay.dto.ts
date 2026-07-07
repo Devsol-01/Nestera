@@ -10,12 +10,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ReplayJobMode } from '../entities/blockchain-replay-job.entity';
 
 export class CreateReplayJobDto {
-  @ApiProperty({ enum: ReplayJobMode })
+  @ApiProperty({ enum: ReplayJobMode, example: ReplayJobMode.LEDGER_RANGE })
   @IsEnum(ReplayJobMode)
   mode: ReplayJobMode;
 
   @ApiPropertyOptional({
     description: 'Start ledger (inclusive) for ledger_range mode',
+    example: 100000,
   })
   @ValidateIf((o) => o.mode === ReplayJobMode.LEDGER_RANGE)
   @IsInt()
@@ -24,19 +25,21 @@ export class CreateReplayJobDto {
 
   @ApiPropertyOptional({
     description: 'End ledger (inclusive) for ledger_range mode',
+    example: 200000,
   })
   @ValidateIf((o) => o.mode === ReplayJobMode.LEDGER_RANGE)
   @IsInt()
   @Min(0)
   endLedger?: number;
 
-  @ApiPropertyOptional({ description: 'Event cursor for event_cursor mode' })
+  @ApiPropertyOptional({ description: 'Event cursor for event_cursor mode', example: 'eyJpZCI6IDEwfQ==' })
   @ValidateIf((o) => o.mode === ReplayJobMode.EVENT_CURSOR)
   @IsString()
   eventCursor?: string;
 
   @ApiPropertyOptional({
     description: 'Optional end ledger when replaying from cursor',
+    example: 200000,
   })
   @IsOptional()
   @IsInt()
@@ -45,30 +48,30 @@ export class CreateReplayJobDto {
 }
 
 export class ReplayJobResponseDto {
-  @ApiProperty()
+  @ApiProperty({ example: 'replay-550e8400-e29b-41d4-a716-446655440000' })
   id: string;
 
-  @ApiProperty({ enum: ReplayJobMode })
+  @ApiProperty({ enum: ReplayJobMode, example: ReplayJobMode.LEDGER_RANGE })
   mode: ReplayJobMode;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'running' })
   status: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 15000 })
   eventsProcessed: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: 5 })
   eventsFailed: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: 100 })
   eventsSkipped: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: 15105 })
   totalEvents: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Timeout processing ledger 150050' })
   lastError?: string | null;
 
-  @ApiProperty()
+  @ApiProperty({ example: 99.3 })
   progressPercent: number;
 }

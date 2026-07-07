@@ -7,6 +7,11 @@ import {
   NotificationType,
 } from '../notifications/entities/notification.entity';
 import { ReferralsService } from './referrals.service';
+import {
+  REFERRAL_COMPLETED_EVENT,
+  ReferralCompletedEventPayload,
+  normalizeReferralCompletedEvent,
+} from './referral-events.types';
 
 @Injectable()
 export class ReferralEventsListener {
@@ -46,26 +51,24 @@ export class ReferralEventsListener {
     }
   }
 
-  @OnEvent('referral.completed')
-  async handleReferralCompleted(payload: {
-    referralId: string;
-    referrerId: string;
-    refereeId: string;
-  }) {
-    this.logger.log(`Referral ${payload.referralId} completed`);
+  @OnEvent(REFERRAL_COMPLETED_EVENT)
+  async handleReferralCompleted(payload: ReferralCompletedEventPayload) {
+    const normalizedPayload = normalizeReferralCompletedEvent(payload);
+
+    this.logger.log(`Referral ${normalizedPayload.referralId} completed`);
 
     // Notify referrer
     await this.notificationRepository.save({
-      userId: payload.referrerId,
+      userId: normalizedPayload.referrerId,
       type: NotificationType.REFERRAL_COMPLETED,
       title: 'Referral Completed!',
       message:
         'Your referral has completed their first deposit. Rewards will be distributed soon.',
-      metadata: { referralId: payload.referralId },
+      metadata: { referralId: normalizedPayload.referralId },
     });
 
     // Automatically distribute rewards
-    await this.referralsService.distributeRewards(payload.referralId);
+    await this.referralsService.distributeRewards(normalizedPayload.referralId);
   }
 
   @OnEvent('referral.reward.distribute')

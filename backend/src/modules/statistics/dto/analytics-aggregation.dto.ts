@@ -10,6 +10,7 @@ import {
 export class CreateAggregationJobDto {
   @ApiProperty({
     enum: AggregationType,
+    example: AggregationType.DAILY_TRANSACTIONS,
     description: 'Type of aggregation to perform',
   })
   @IsEnum(AggregationType)
@@ -17,6 +18,7 @@ export class CreateAggregationJobDto {
 
   @ApiProperty({
     enum: AggregationPeriod,
+    example: AggregationPeriod.DAILY,
     description: 'Time period for aggregation',
   })
   @IsEnum(AggregationPeriod)
@@ -24,6 +26,7 @@ export class CreateAggregationJobDto {
 
   @ApiPropertyOptional({
     description: 'Start date for aggregation (ISO string)',
+    example: '2026-06-01T00:00:00.000Z',
   })
   @IsOptional()
   @IsDateString()
@@ -31,6 +34,7 @@ export class CreateAggregationJobDto {
 
   @ApiPropertyOptional({
     description: 'End date for aggregation (ISO string)',
+    example: '2026-06-30T23:59:59.999Z',
   })
   @IsOptional()
   @IsDateString()
@@ -39,6 +43,7 @@ export class CreateAggregationJobDto {
   @ApiPropertyOptional({
     description: 'Whether this is a backfill operation',
     default: false,
+    example: false,
   })
   @IsOptional()
   @IsBoolean()
@@ -46,6 +51,7 @@ export class CreateAggregationJobDto {
 
   @ApiPropertyOptional({
     description: 'Backfill start date (ISO string)',
+    example: '2026-01-01T00:00:00.000Z',
   })
   @IsOptional()
   @IsDateString()
@@ -53,6 +59,7 @@ export class CreateAggregationJobDto {
 
   @ApiPropertyOptional({
     description: 'Backfill end date (ISO string)',
+    example: '2026-06-30T23:59:59.999Z',
   })
   @IsOptional()
   @IsDateString()
@@ -60,6 +67,7 @@ export class CreateAggregationJobDto {
 
   @ApiPropertyOptional({
     description: 'Additional metadata for the job',
+    example: { source: 'api', triggeredBy: 'user-123' },
   })
   @IsOptional()
   @IsObject()
@@ -69,6 +77,7 @@ export class CreateAggregationJobDto {
 export class BackfillAggregationJobDto {
   @ApiProperty({
     enum: AggregationType,
+    example: AggregationType.DAILY_TRANSACTIONS,
     description: 'Type of aggregation to backfill',
   })
   @IsEnum(AggregationType)
@@ -76,6 +85,7 @@ export class BackfillAggregationJobDto {
 
   @ApiProperty({
     enum: AggregationPeriod,
+    example: AggregationPeriod.DAILY,
     description: 'Time period for aggregation',
   })
   @IsEnum(AggregationPeriod)
@@ -83,18 +93,21 @@ export class BackfillAggregationJobDto {
 
   @ApiProperty({
     description: 'Backfill start date (ISO string)',
+    example: '2026-01-01T00:00:00.000Z',
   })
   @IsDateString()
   backfillStartDate: string;
 
   @ApiProperty({
     description: 'Backfill end date (ISO string)',
+    example: '2026-06-30T23:59:59.999Z',
   })
   @IsDateString()
   backfillEndDate: string;
 
   @ApiPropertyOptional({
     description: 'Additional metadata for the backfill',
+    example: { source: 'backfill-script', triggeredBy: 'system' },
   })
   @IsOptional()
   @IsObject()
@@ -102,97 +115,97 @@ export class BackfillAggregationJobDto {
 }
 
 export class AggregationJobResponseDto {
-  @ApiProperty()
+  @ApiProperty({ example: 'agg_550e8400-e29b-41d4-a716-446655440000' })
   id: string;
 
-  @ApiProperty({ enum: AggregationType })
+  @ApiProperty({ enum: AggregationType, example: AggregationType.DAILY_TRANSACTIONS })
   aggregationType: AggregationType;
 
-  @ApiProperty({ enum: AggregationPeriod })
+  @ApiProperty({ enum: AggregationPeriod, example: AggregationPeriod.DAILY })
   period: AggregationPeriod;
 
-  @ApiProperty({ enum: AggregationJobStatus })
+  @ApiProperty({ enum: AggregationJobStatus, example: AggregationJobStatus.COMPLETED })
   status: AggregationJobStatus;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2026-06-01T00:00:00.000Z' })
   startDate?: Date;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2026-06-30T23:59:59.999Z' })
   endDate?: Date;
 
-  @ApiProperty()
+  @ApiProperty({ example: false })
   isBackfill: boolean;
 
-  @ApiPropertyOptional({ enum: BackfillStatus })
+  @ApiPropertyOptional({ enum: BackfillStatus, example: BackfillStatus.NOT_STARTED })
   backfillStatus?: BackfillStatus;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2026-01-01T00:00:00.000Z' })
   backfillStartDate?: Date;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2026-06-30T23:59:59.999Z' })
   backfillEndDate?: Date;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 180 })
   totalBackfillPeriods?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 90 })
   processedBackfillPeriods?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: { '2026-01': 'completed', '2026-02': 'completed' } })
   backfillProgress?: Record<string, unknown>;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Failed to process period 2026-03' })
   errorMessage?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: { source: 'api', triggeredBy: 'admin' } })
   metadata?: Record<string, unknown>;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: { totalRecords: 50000, avgValue: 250 } })
   result?: Record<string, unknown>;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2026-06-29T10:00:00.000Z' })
   startedAt?: Date;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2026-06-29T10:05:00.000Z' })
   completedAt?: Date;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 50000 })
   recordsProcessed?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 0 })
   recordsFailed?: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: 0 })
   retryCount: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: '2026-06-29T10:00:00.000Z' })
   createdAt: Date;
 
-  @ApiProperty()
+  @ApiProperty({ example: '2026-06-29T10:05:00.000Z' })
   updatedAt: Date;
 }
 
 export class AggregationJobListQueryDto {
-  @ApiPropertyOptional({ enum: AggregationType })
+  @ApiPropertyOptional({ enum: AggregationType, example: AggregationType.DAILY_TRANSACTIONS })
   @IsOptional()
   @IsEnum(AggregationType)
   aggregationType?: AggregationType;
 
-  @ApiPropertyOptional({ enum: AggregationJobStatus })
+  @ApiPropertyOptional({ enum: AggregationJobStatus, example: AggregationJobStatus.COMPLETED })
   @IsOptional()
   @IsEnum(AggregationJobStatus)
   status?: AggregationJobStatus;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: false })
   @IsOptional()
   @IsBoolean()
   isBackfill?: boolean;
 
-  @ApiPropertyOptional({ default: 1 })
+  @ApiPropertyOptional({ default: 1, example: 1 })
   @IsOptional()
   page?: number;
 
-  @ApiPropertyOptional({ default: 20 })
+  @ApiPropertyOptional({ default: 20, example: 20 })
   @IsOptional()
   limit?: number;
 }

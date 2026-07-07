@@ -85,10 +85,10 @@ describe('AdminUsersService', () => {
       });
       const result = await service.listUsers(query);
       expect(result.meta.page).toBe(1);
-      expect(result.meta.pageSize).toBe(20);
+      expect(result.meta.limit).toBe(20);
       expect(result.meta.totalItemCount).toBe(1);
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0].email).toBe('test@nestera.io');
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].email).toBe('test@nestera.io');
     });
 
     it('includes totalSavings and transactionCount', async () => {

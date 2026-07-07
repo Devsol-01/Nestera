@@ -171,7 +171,13 @@ export class StellarEventListenerService
         this.lastProcessedCursor = lastEvent.id;
       }
     } catch (error) {
-      this.logger.error('Error polling events', error);
+      this.logger.error('StellarEventListenerService: error polling events', {
+        handlerName: 'StellarEventListenerService',
+        eventId: null,
+        ledgerSequence: null,
+        contractId: this.contractId,
+        error: (error as Error).message,
+      });
     } finally {
       await lock.release();
     }
@@ -211,7 +217,12 @@ export class StellarEventListenerService
       // Record that we processed this event
       await this.recordProcessedEvent(event, eventType);
     } catch (error) {
-      this.logger.error(`Failed to process event ${eventId}`, error);
+      this.logger.error('StellarEventListenerService: failed to process event', {
+        handlerName: 'StellarEventListenerService',
+        eventId,
+        ledgerSequence: (event as any).ledger ?? null,
+        error: (error as Error).message,
+      });
       // Don't throw - continue processing other events
     }
   }
@@ -277,7 +288,12 @@ export class StellarEventListenerService
         );
       }
     } catch (error) {
-      this.logger.error('Failed to handle claim status update', error);
+      this.logger.error('StellarEventListenerService: failed to handle claim status update', {
+        handlerName: 'StellarEventListenerService',
+        eventId: event.id,
+        ledgerSequence: (event as any).ledger ?? null,
+        error: (error as Error).message,
+      });
       throw error;
     }
   }

@@ -19,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import { NotificationsService } from './notifications.service';
 import { UpdateUserPreferenceDto } from './dto/update-notification-preference.dto';
 import { User } from '../user/entities/user.entity';
@@ -59,6 +60,7 @@ export class NotificationsController {
 
   @Patch(':id/read')
   @HttpCode(HttpStatus.OK)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Mark notification as read' })
   async markAsRead(@Param('id') notificationId: string) {
     return await this.notificationsService.markAsRead(notificationId);
@@ -66,6 +68,7 @@ export class NotificationsController {
 
   @Patch('mark-all-read')
   @HttpCode(HttpStatus.OK)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Mark all notifications as read' })
   async markAllAsRead(@CurrentUser() user: User) {
     await this.notificationsService.markAllAsRead(user.id);
@@ -79,12 +82,14 @@ export class NotificationsController {
   }
 
   @Post('preferences')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Create or restore user preference settings' })
   async createPreferences(@CurrentUser() user: User) {
     return await this.notificationsService.createPreferences(user.id);
   }
 
   @Patch('preferences')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary:
       'Update user preferences (notifications, privacy, display, channels, quiet hours, digest)',

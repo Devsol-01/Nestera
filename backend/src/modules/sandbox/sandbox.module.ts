@@ -10,9 +10,12 @@ import { UserWallet } from '../user/entities/user-wallet.entity';
 import { Transaction } from '../transactions/entities/transaction.entity';
 import { SavingsProduct } from '../savings/entities/savings-product.entity';
 import { SavingsGoal } from '../savings/entities/savings-goal.entity';
+import { AuthModule } from '../../auth/auth.module';
 
 @Module({
   imports: [
+    // Provides JwtStrategy + PassportModule so JwtAuthGuard works correctly
+    AuthModule,
     TypeOrmModule.forFeature([
       SandboxApiKey,
       SandboxUsageAnalytics,

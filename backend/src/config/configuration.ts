@@ -101,6 +101,33 @@ export default () => ({
     ),
     backoffDelay: parseInt(process.env.JOB_QUEUE_BACKOFF_DELAY || '2000', 10),
   },
+  webhook: {
+    /**
+     * Maximum number of PENDING outbound deliveries allowed before
+     * new dispatch calls are shed (backpressure).  Default: 500.
+     */
+    maxPendingDeliveries: parseInt(
+      process.env.WEBHOOK_MAX_PENDING_DELIVERIES || '500',
+      10,
+    ),
+    /**
+     * Maximum inbound webhook requests per sender/IP per minute before
+     * the rate-limiter rejects with 429.  Default: 30.
+     */
+    ingestRateLimitPerMinute: parseInt(
+      process.env.WEBHOOK_INGEST_RATE_LIMIT_PER_MINUTE || '30',
+      10,
+    ),
+    /**
+     * Maximum number of PENDING outbound deliveries allowed before the
+     * WebhookIngestGuard rejects inbound requests with 503 (backpressure).
+     * Default: 1000.
+     */
+    maxIngestQueueDepth: parseInt(
+      process.env.WEBHOOK_MAX_INGEST_QUEUE_DEPTH || '1000',
+      10,
+    ),
+  },
   mail: {
     host: process.env.MAIL_HOST,
     port: parseInt(process.env.MAIL_PORT || '587', 10),
@@ -203,6 +230,75 @@ export default () => ({
     indexerTtlMs: parseInt(process.env.INDEXER_LOCK_TTL_MS || '25000', 10),
     replayTtlMs: parseInt(process.env.REPLAY_LOCK_TTL_MS || '120000', 10),
   },
+  idempotency: {
+    /**
+     * Enable the periodic background cleanup job for expired idempotency
+     * records.  Redis TTL is normally authoritative, but the cleanup job
+     * defends against TTL misconfiguration, Redis eviction policies, and
+     * records whose explicit `expiresAt` has passed (see issue #Cleanup).
+     */
+    cleanupEnabled:
+      process.env.IDEMPOTENCY_CLEANUP_ENABLED !== 'false',
+    /**
+     * Cron expression for the cleanup job.  Default is hourly to keep
+     * per-run work bounded; can be tightened in production via env.
+     */
+    cleanupCronSchedule:
+      process.env.IDEMPOTENCY_CLEANUP_CRON || '0 * * * *',
+    /**
+     * Maximum number of records processed per cleanup run.  Keeps the
+     * job bursty-safe even on installations with many in-flight keys.
+     */
+    cleanupBatchSize: parseInt(
+      process.env.IDEMPOTENCY_CLEANUP_BATCH_SIZE || '500',
+      10,
+    ),
+    /**
+     * HOW_MANY hint for SCAN — Redis returns up to this many keys in
+     * one round-trip but may return more or fewer.  Tune for throughput.
+     */
+    cleanupScanCount: parseInt(
+      process.env.IDEMPOTENCY_CLEANUP_SCAN_COUNT || '200',
+      10,
+    ),
+    /**
+     * Lock TTL for the single-instance cleanup guard.  Must exceed
+     * expected maximum cleanup duration to avoid mid-run lock loss.
+     */
+    cleanupLockTtlMs: parseInt(
+      process.env.IDEMPOTENCY_CLEANUP_LOCK_TTL_MS || '120000',
+      10,
+    ),
+  },
+  timeouts: {
+    /**
+     * Outbound webhook delivery — how long we wait for a subscriber's
+     * endpoint to respond before treating the delivery as failed.
+     * Default: 10 s.  Tune per-environment via TIMEOUT_WEBHOOK_DELIVERY_MS.
+     */
+    webhookDeliveryMs: parseInt(
+      process.env.TIMEOUT_WEBHOOK_DELIVERY_MS || '10000',
+      10,
+    ),
+    /**
+     * Inbound webhook ingest — maximum time (ms) the verification
+     * middleware + controller handler may run before the request is
+     * aborted.  Protects against slow-loris or stalled DB calls on the
+     * ingest path.  Default: 5 s.
+     */
+    webhookIngestMs: parseInt(
+      process.env.TIMEOUT_WEBHOOK_INGEST_MS || '5000',
+      10,
+    ),
+    /**
+     * Default HTTP client timeout used by any service that does not
+     * have an explicit per-endpoint override.  Default: 15 s.
+     */
+    httpClientMs: parseInt(
+      process.env.TIMEOUT_HTTP_CLIENT_MS || '15000',
+      10,
+    ),
+  },
   blockchainReplay: {
     maxLedgerRange: parseInt(
       process.env.BLOCKCHAIN_REPLAY_MAX_LEDGER_RANGE || '10000',
@@ -240,6 +336,17 @@ export default () => ({
     awsSecretAccessKey: process.env.STORAGE_AWS_SECRET_ACCESS_KEY,
     localDir: process.env.STORAGE_LOCAL_DIR || './uploads',
     virusScanningEnabled: process.env.UPLOAD_VIRUS_SCANNING === 'true',
+  },
+  storageQuota: {
+    enabled: process.env.STORAGE_QUOTA_ENABLED !== 'false',
+    reservationTtlHours: parseInt(
+      process.env.STORAGE_QUOTA_RESERVATION_TTL_HOURS || '4',
+      10,
+    ),
+    cleanupIntervalMinutes: parseInt(
+      process.env.STORAGE_QUOTA_CLEANUP_INTERVAL_MINUTES || '15',
+      10,
+    ),
   },
   adminNotifications: {
     maxPerMinute: parseInt(process.env.ADMIN_NOTIF_MAX_PER_MINUTE || '60', 10),
@@ -310,5 +417,32 @@ export default () => ({
     threshold: parseInt(process.env.COMPRESSION_THRESHOLD || '1024', 10),
     jsonBodyLimit: process.env.JSON_BODY_LIMIT || '1mb',
     urlencodedBodyLimit: process.env.URLENCODED_BODY_LIMIT || '1mb',
+    // Inbound (request body) decompression of gzip/deflate payloads.
+    request: {
+      // Toggle support for compressed request bodies (default: enabled).
+      enabled: process.env.REQUEST_DECOMPRESSION_ENABLED !== 'false',
+      // Encodings the body parser is allowed to inflate. Restricted to the
+      // formats body-parser can safely handle.
+      allowedEncodings: (process.env.REQUEST_ALLOWED_ENCODINGS || 'gzip,deflate')
+        .split(',')
+        .map((encoding) => encoding.trim().toLowerCase())
+        .filter(Boolean),
+      // Maximum *decompressed* body size. Enforced by the body parser against
+      // the inflated stream, so an over-sized zip bomb is aborted with HTTP 413
+      // before it is fully buffered. Defaults to the JSON body limit.
+      maxDecompressedSize:
+        process.env.REQUEST_MAX_DECOMPRESSED_SIZE ||
+        process.env.JSON_BODY_LIMIT ||
+        '1mb',
+    },
+  },
+  multiTenant: {
+    enabled: process.env.MULTI_TENANT_ENABLED === 'true',
+    defaultTenantId: process.env.DEFAULT_TENANT_ID || 'default',
+    defaultTenantSlug: process.env.DEFAULT_TENANT_SLUG || 'default',
+  },
+  testMode: {
+    enabled: process.env.TEST_MODE === 'true',
+    stellarFixtures: process.env.TEST_MODE_STELLAR_FIXTURES,
   },
 });

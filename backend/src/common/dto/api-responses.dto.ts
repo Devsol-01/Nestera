@@ -69,6 +69,18 @@ export class TooManyRequestsResponseDto {
     example: 60,
   })
   retryAfter: number;
+
+  @ApiProperty({
+    description: 'ISO timestamp indicating when the rate limit resets',
+    example: '2026-06-29T12:35:00.000Z',
+  })
+  resetAt: string;
+
+  @ApiProperty({
+    description: 'HTTP method and route that triggered the limit',
+    example: 'POST /api/v1/auth/login',
+  })
+  endpoint: string;
 }
 
 export class ValidationErrorResponseDto extends ErrorResponseDto {

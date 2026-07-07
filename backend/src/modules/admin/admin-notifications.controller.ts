@@ -26,6 +26,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 
 @ApiTags('admin/notifications')
 @Controller('admin/notifications')
@@ -38,6 +39,7 @@ export class AdminNotificationsController {
   ) {}
 
   @Post('broadcast')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary: 'Send broadcast notification to all or targeted users',
   })
@@ -57,6 +59,7 @@ export class AdminNotificationsController {
   }
 
   @Post('targeted')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Send targeted notification to filtered users' })
   @ApiResponse({
     status: 200,
@@ -67,6 +70,7 @@ export class AdminNotificationsController {
   }
 
   @Post('schedule')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Schedule a notification for future delivery' })
   @ApiResponse({
     status: 201,

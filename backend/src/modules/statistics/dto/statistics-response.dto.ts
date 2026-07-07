@@ -1,253 +1,253 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class TimeSeriesDataPointDto {
-  @ApiProperty({ type: String, format: 'date-time' })
+  @ApiProperty({ example: '2026-06-29T12:00:00.000Z', type: String, format: 'date-time' })
   timestamp: Date;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 1500, type: Number })
   value: number;
 
-  @ApiPropertyOptional({ type: Number })
+  @ApiPropertyOptional({ example: 1400, type: Number })
   previousValue?: number;
 
-  @ApiPropertyOptional({ type: Number })
+  @ApiPropertyOptional({ example: 100, type: Number })
   change?: number;
 
-  @ApiPropertyOptional({ type: Number })
+  @ApiPropertyOptional({ example: 7.14, type: Number })
   changePercentage?: number;
 }
 
 export class ComparisonDto {
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 10000, type: Number })
   previousValue: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 15000, type: Number })
   currentValue: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 5000, type: Number })
   change: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 50, type: Number })
   changePercentage: number;
 
-  @ApiProperty({ type: String })
+  @ApiProperty({ example: 'up', type: String })
   trend: 'up' | 'down' | 'stable';
 
-  @ApiPropertyOptional({ type: String })
+  @ApiPropertyOptional({ example: 'Previous 30 days', type: String })
   comparisonPeriod?: string;
 }
 
 export class DrillDownDto {
-  @ApiProperty({ type: String })
+  @ApiProperty({ example: 'savings', type: String })
   category: string;
 
-  @ApiProperty({ type: Object })
+  @ApiProperty({ example: { USDC: 50000, XLM: 10000 }, type: Object })
   breakdown: Record<string, any>;
 
-  @ApiPropertyOptional({ type: [TimeSeriesDataPointDto] })
+  @ApiPropertyOptional({ example: [{ timestamp: '2026-06-29T00:00:00.000Z', value: 1400 }], type: [TimeSeriesDataPointDto] })
   timeSeries?: TimeSeriesDataPointDto[];
 
-  @ApiPropertyOptional({ type: Number })
+  @ApiPropertyOptional({ example: 15000, type: Number })
   total?: number;
 
-  @ApiPropertyOptional({ type: Number })
+  @ApiPropertyOptional({ example: 35.5, type: Number })
   percentage?: number;
 }
 
 export class UserGrowthDto {
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 11500, type: Number })
   totalUsers: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 8900, type: Number })
   activeUsers: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 320, type: Number })
   newUsersCount: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 2600, type: Number })
   inactiveUsers: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 180, type: Number })
   churnedUsers: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 77.4, type: Number })
   retentionRate: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 1.6, type: Number })
   churnRate: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 2.8, type: Number })
   growthRate: number;
 
-  @ApiPropertyOptional({ type: Object })
+  @ApiPropertyOptional({ example: { US: 5000, EU: 3000 }, type: Object })
   usersByRegion?: Record<string, number>;
 
-  @ApiPropertyOptional({ type: Object })
+  @ApiPropertyOptional({ example: { free: 8000, premium: 3500 }, type: Object })
   usersBySegment?: Record<string, number>;
 
-  @ApiPropertyOptional({ type: [TimeSeriesDataPointDto] })
+  @ApiPropertyOptional({ example: [{ timestamp: '2026-06-29T00:00:00.000Z', value: 11000 }], type: [TimeSeriesDataPointDto] })
   timeSeries?: TimeSeriesDataPointDto[];
 
-  @ApiPropertyOptional({ type: () => ComparisonDto })
+  @ApiPropertyOptional({ example: { previousValue: 10000, currentValue: 11500, change: 1500, changePercentage: 15, trend: 'up', comparisonPeriod: 'Previous 30 days' }, type: () => ComparisonDto })
   comparison?: ComparisonDto;
 }
 
 export class TransactionVolumeDto {
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 1520, type: Number })
   totalTransactions: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 1200, type: Number })
   successfulTransactions: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 45, type: Number })
   failedTransactions: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 275, type: Number })
   pendingTransactions: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 500000, type: Number })
   totalVolume: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 328.9, type: Number })
   avgTransactionAmount: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 10, type: Number })
   minTransactionAmount: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 5000, type: Number })
   maxTransactionAmount: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 78.9, type: Number })
   successRate: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 3.0, type: Number })
   failureRate: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 25000, type: Number })
   avgGasUsed: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 38000000, type: Number })
   totalGasSpent: number;
 
-  @ApiPropertyOptional({ type: Object })
+  @ApiPropertyOptional({ example: { deposit: 800, withdrawal: 400, transfer: 320 }, type: Object })
   transactionsByType?: Record<string, number>;
 
-  @ApiPropertyOptional({ type: Object })
+  @ApiPropertyOptional({ example: { USDC: 300000, XLM: 200000 }, type: Object })
   volumeByType?: Record<string, number>;
 
-  @ApiPropertyOptional({ type: [TimeSeriesDataPointDto] })
+  @ApiPropertyOptional({ example: [{ timestamp: '2026-06-29T00:00:00.000Z', value: 1400 }], type: [TimeSeriesDataPointDto] })
   timeSeries?: TimeSeriesDataPointDto[];
 
-  @ApiPropertyOptional({ type: () => ComparisonDto })
+  @ApiPropertyOptional({ example: { previousValue: 10000, currentValue: 11500, change: 1500, changePercentage: 15, trend: 'up', comparisonPeriod: 'Previous 30 days' }, type: () => ComparisonDto })
   comparison?: ComparisonDto;
 
-  @ApiPropertyOptional({ type: () => DrillDownDto })
+  @ApiPropertyOptional({ example: { category: 'savings', breakdown: { USDC: 30000, XLM: 20000 }, total: 50000 }, type: () => DrillDownDto })
   drillDown?: DrillDownDto;
 }
 
 export class SavingsMetricsDto {
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 3200, type: Number })
   totalAccounts: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 2800, type: Number })
   activeAccounts: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 150, type: Number })
   newAccounts: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 20, type: Number })
   closedAccounts: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 2500000, type: Number })
   totalValueLocked: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 500000, type: Number })
   inflow: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 250000, type: Number })
   outflow: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 4.5, type: Number })
   avgApy: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 2.0, type: Number })
   minApy: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 8.0, type: Number })
   maxApy: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 12000, type: Number })
   totalInterestEarned: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 4.7, type: Number })
   accountGrowthRate: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 12.3, type: Number })
   tvlGrowthRate: number;
 
-  @ApiPropertyOptional({ type: Object })
+  @ApiPropertyOptional({ example: { flexible: 1500, locked: 1700 }, type: Object })
   accountsByProduct?: Record<string, number>;
 
-  @ApiPropertyOptional({ type: Object })
+  @ApiPropertyOptional({ example: { flexible: 1000000, locked: 1500000 }, type: Object })
   tvlByProduct?: Record<string, number>;
 
-  @ApiPropertyOptional({ type: Object })
+  @ApiPropertyOptional({ example: { flexible: 3.5, locked: 5.0 }, type: Object })
   apyByProduct?: Record<string, number>;
 
-  @ApiPropertyOptional({ type: [TimeSeriesDataPointDto] })
+  @ApiPropertyOptional({ example: [{ timestamp: '2026-06-29T00:00:00.000Z', value: 2400000 }], type: [TimeSeriesDataPointDto] })
   timeSeries?: TimeSeriesDataPointDto[];
 
-  @ApiPropertyOptional({ type: () => ComparisonDto })
+  @ApiPropertyOptional({ example: { previousValue: 2000000, currentValue: 2500000, change: 500000, changePercentage: 25, trend: 'up', comparisonPeriod: 'Previous 30 days' }, type: () => ComparisonDto })
   comparison?: ComparisonDto;
 
-  @ApiPropertyOptional({ type: () => DrillDownDto })
+  @ApiPropertyOptional({ example: { category: 'savings', breakdown: { flexible: 1500000, locked: 1000000 }, total: 2500000 }, type: () => DrillDownDto })
   drillDown?: DrillDownDto;
 }
 
 export class SystemHealthDto {
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 98.5, type: Number })
   healthScore: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 99.9, type: Number })
   apiUptime: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 99.95, type: Number })
   blockchainUptime: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 15420, type: Number })
   totalRequests: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 15200, type: Number })
   successfulRequests: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 220, type: Number })
   failedRequests: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 45, type: Number })
   avgResponseTime: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 120, type: Number })
   p95ResponseTime: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 250, type: Number })
   p99ResponseTime: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 62.5, type: Number })
   memoryUsage: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 45.2, type: Number })
   cpuUsage: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 78.1, type: Number })
   diskUsage: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 94.5, type: Number })
   cacheHitRate: number;
 
-  @ApiPropertyOptional({ type: Object })
+  @ApiPropertyOptional({ example: { database: 'healthy', redis: 'healthy', stellar: 'healthy' }, type: Object })
   serviceStatus?: Record<string, any>;
 
-  @ApiPropertyOptional({ type: Array })
+  @ApiPropertyOptional({ example: [{ severity: 'warning', message: 'High memory usage', timestamp: '2026-06-29T12:00:00.000Z' }], type: Array })
   alerts?: Array<{
     severity: 'critical' | 'warning' | 'info';
     message: string;
@@ -256,38 +256,38 @@ export class SystemHealthDto {
 }
 
 export class StatisticsOverviewDto {
-  @ApiProperty({ type: UserGrowthDto })
+  @ApiProperty({ type: UserGrowthDto, example: { totalUsers: 11500, activeUsers: 8900, newUsersCount: 320, inactiveUsers: 2600, churnedUsers: 180, retentionRate: 77.4, churnRate: 1.6, growthRate: 2.8, usersByRegion: { US: 5000, EU: 3000 }, usersBySegment: { free: 8000, premium: 3500 } } })
   userGrowth: UserGrowthDto;
 
-  @ApiProperty({ type: TransactionVolumeDto })
+  @ApiProperty({ type: TransactionVolumeDto, example: { totalTransactions: 1520, successfulTransactions: 1200, failedTransactions: 45, pendingTransactions: 275, totalVolume: 500000, avgTransactionAmount: 328.9, minTransactionAmount: 10, maxTransactionAmount: 5000, successRate: 78.9, failureRate: 3.0, avgGasUsed: 25000, totalGasSpent: 38000000 } })
   transactionVolume: TransactionVolumeDto;
 
-  @ApiProperty({ type: SavingsMetricsDto })
+  @ApiProperty({ type: SavingsMetricsDto, example: { totalAccounts: 3200, activeAccounts: 2800, newAccounts: 150, closedAccounts: 20, totalValueLocked: 2500000, inflow: 500000, outflow: 250000, avgApy: 4.5, minApy: 2.0, maxApy: 8.0, totalInterestEarned: 12000, accountGrowthRate: 4.7, tvlGrowthRate: 12.3 } })
   savingsMetrics: SavingsMetricsDto;
 
-  @ApiProperty({ type: SystemHealthDto })
+  @ApiProperty({ type: SystemHealthDto, example: { healthScore: 98.5, apiUptime: 99.9, blockchainUptime: 99.95, totalRequests: 15420, successfulRequests: 15200, failedRequests: 220, avgResponseTime: 45, p95ResponseTime: 120, p99ResponseTime: 250, memoryUsage: 62.5, cpuUsage: 45.2, diskUsage: 78.1, cacheHitRate: 94.5 } })
   systemHealth: SystemHealthDto;
 
-  @ApiProperty({ type: String, format: 'date-time' })
+  @ApiProperty({ example: '2026-06-29T12:00:00.000Z', type: String, format: 'date-time' })
   generatedAt: Date;
 
-  @ApiPropertyOptional({ type: String })
+  @ApiPropertyOptional({ example: 'Auto-generated report', type: String })
   note?: string;
 }
 
 export class StatisticsExportDto {
-  @ApiProperty({ type: String })
+  @ApiProperty({ example: 'json', type: String })
   format: 'json' | 'csv' | 'xlsx';
 
-  @ApiProperty({ type: String })
+  @ApiProperty({ example: 'all', type: String })
   dataType: 'all' | 'users' | 'transactions' | 'savings' | 'health';
 
-  @ApiProperty({ type: String })
+  @ApiProperty({ example: 'statistics-export-2026-06-29.json', type: String })
   fileName: string;
 
-  @ApiPropertyOptional({ type: String })
+  @ApiPropertyOptional({ example: 'Monthly statistics export', type: String })
   description?: string;
 
-  @ApiProperty({ type: String, format: 'date-time' })
+  @ApiProperty({ example: '2026-06-29T12:00:00.000Z', type: String, format: 'date-time' })
   generatedAt: Date;
 }

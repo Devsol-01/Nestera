@@ -20,8 +20,18 @@ import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { AppModule } from '../src/app.module';
 import { ValidationPipe } from '@nestjs/common';
-import { PageDto } from '../src/common/dto/page.dto';
+import { PageDto, PaginatedResponseDto } from '../src/common/dto/page.dto';
 import { PageMetaDto } from '../src/common/dto/page-meta.dto';
+import { PageOptionsDto } from '../src/common/dto/page-options.dto';
+import {
+  ApiErrorResponseDto,
+  ConflictErrorDto,
+  ForbiddenErrorDto,
+  NotFoundErrorDto,
+  UnauthorizedErrorDto,
+  ValidationErrorDto,
+} from '../src/common/dto/api-error-response.dto';
+import { StandardErrorResponseDto } from '../src/common/dto/standard-error-response.dto';
 import { TransactionResponseDto } from '../src/modules/transactions/dto/transaction-response.dto';
 import {
   VersioningMiddleware,
@@ -71,6 +81,23 @@ Obtain a token via:
 | 503  | Service temporarily unavailable |
 `;
 
+function sortObject(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => sortObject(entry));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.keys(value as Record<string, unknown>)
+      .sort((left, right) => left.localeCompare(right))
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = sortObject((value as Record<string, unknown>)[key]);
+        return acc;
+      }, {});
+  }
+
+  return value;
+}
+
 async function generate() {
   const app = await NestFactory.create(AppModule, { logger: false });
 
@@ -117,15 +144,34 @@ async function generate() {
       .build();
 
     const document = SwaggerModule.createDocument(app, config, {
-      extraModels: [PageDto, PageMetaDto, TransactionResponseDto],
+      extraModels: [
+        PageDto,
+        PaginatedResponseDto,
+        PageMetaDto,
+        PageOptionsDto,
+        TransactionResponseDto,
+        StandardErrorResponseDto,
+        ApiErrorResponseDto,
+        ValidationErrorDto,
+        UnauthorizedErrorDto,
+        ForbiddenErrorDto,
+        NotFoundErrorDto,
+        ConflictErrorDto,
+      ],
     });
 
+    const sortedDocument = sortObject(document);
+
     const jsonPath = join(outDir, `openapi-v${version}.json`);
-    writeFileSync(jsonPath, JSON.stringify(document, null, 2), 'utf-8');
+    writeFileSync(jsonPath, JSON.stringify(sortedDocument, null, 2), 'utf-8');
     console.log(`✅  OpenAPI v${version} JSON  → ${jsonPath}`);
 
     const yamlPath = join(outDir, `openapi-v${version}.yaml`);
-    writeFileSync(yamlPath, yaml.dump(document, { lineWidth: 120 }), 'utf-8');
+    writeFileSync(
+      yamlPath,
+      yaml.dump(sortedDocument, { lineWidth: 120, sortKeys: true }),
+      'utf-8',
+    );
     console.log(`✅  OpenAPI v${version} YAML  → ${yamlPath}`);
   }
 
@@ -140,7 +186,9 @@ async function generate() {
   }
 
   await app.close();
-  console.log('\nDone. Import openapi.json into Postman / Insomnia for interactive testing.');
+  console.log(
+    '\nDone. Import openapi.json into Postman / Insomnia for interactive testing.',
+  );
 }
 
 generate().catch((err) => {

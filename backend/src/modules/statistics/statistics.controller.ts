@@ -42,6 +42,7 @@ import { AnalyticsExportService } from './services/analytics-export.service';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
+import { AsyncResponseBuilder } from '../../common/dto';
 
 @ApiTags('admin/statistics')
 @Controller('admin/statistics')
@@ -452,12 +453,22 @@ export class StatisticsController {
     @Param('dataType') dataType: string,
     @Body() body: AnalyticsExportJobRequestDto,
     @CurrentUser() user?: { id?: string },
-  ): Promise<AnalyticsExportJobResponseDto> {
-    return this.analyticsExportService.requestExportJob(
+  ) {
+    const job = await this.analyticsExportService.requestExportJob(
       this.resolveExportUserId(user),
       dataType,
       body,
     );
+    return new AsyncResponseBuilder(
+      job.requestId,
+      `/admin/statistics/export/jobs/${job.requestId}`,
+    )
+      .setMessage('Analytics export job queued successfully')
+      .setRetryAfterSeconds(15)
+      .setOperationType('analytics-export')
+      .setStatus(job.status)
+      .setMetadata({ dataType: job.dataType, format: job.format })
+      .build();
   }
 
   /**
@@ -502,8 +513,8 @@ export class StatisticsController {
     @Query('format') format: string = AnalyticsExportFormat.JSON,
     @Query() query: StatisticsQueryDto,
     @CurrentUser() user?: { id?: string },
-  ): Promise<AnalyticsExportJobResponseDto> {
-    return this.analyticsExportService.requestExportJob(
+  ) {
+    const job = await this.analyticsExportService.requestExportJob(
       this.resolveExportUserId(user),
       dataType,
       {
@@ -511,6 +522,16 @@ export class StatisticsController {
         format: format as AnalyticsExportFormat,
       },
     );
+    return new AsyncResponseBuilder(
+      job.requestId,
+      `/admin/statistics/export/jobs/${job.requestId}`,
+    )
+      .setMessage('Analytics export job queued successfully')
+      .setRetryAfterSeconds(15)
+      .setOperationType('analytics-export')
+      .setStatus(job.status)
+      .setMetadata({ dataType: job.dataType, format: job.format })
+      .build();
   }
 
   /**

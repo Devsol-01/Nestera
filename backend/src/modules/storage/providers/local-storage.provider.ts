@@ -1,12 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-  unlinkSync,
-  readFileSync,
-} from 'fs';
+import { existsSync, mkdirSync, writeFileSync, unlinkSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { createHmac, randomUUID } from 'crypto';
 import { StorageProvider, StoredFile } from './storage-provider.interface';
@@ -112,5 +106,28 @@ export class LocalStorageProvider implements StorageProvider {
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
+  }
+
+  async listAll(): Promise<{ key: string; lastModified: Date }[]> {
+    const files: { key: string; lastModified: Date }[] = [];
+
+    const walk = (dir: string, currentPrefix: string = '') => {
+      if (!existsSync(dir)) return;
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = join(dir, entry.name);
+        const key = currentPrefix ? `${currentPrefix}/${entry.name}` : entry.name;
+        
+        if (entry.isDirectory()) {
+          walk(fullPath, key);
+        } else {
+          const stats = statSync(fullPath);
+          files.push({ key, lastModified: stats.mtime });
+        }
+      }
+    };
+
+    walk(this.baseDir);
+    return files;
   }
 }

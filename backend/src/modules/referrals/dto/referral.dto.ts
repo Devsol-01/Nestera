@@ -14,6 +14,7 @@ import { ReferralStatus } from '../entities/referral.entity';
 export class CreateReferralDto {
   @ApiPropertyOptional({
     description: 'Campaign ID to associate with this referral',
+    example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @IsOptional()
   @IsUUID()
@@ -24,6 +25,7 @@ export class GenerateCustomCodeDto {
   @ApiPropertyOptional({
     description:
       'Custom referral code (alphanumeric, 4-12 chars). Auto-generated if omitted.',
+    example: 'BUY-A-CAR',
   })
   @IsOptional()
   @IsString()
@@ -35,6 +37,7 @@ export class GenerateCustomCodeDto {
 
   @ApiPropertyOptional({
     description: 'Campaign ID to associate with this referral',
+    example: '550e8400-e29b-41d4-a716-446655440000',
   })
   @IsOptional()
   @IsUUID()
@@ -42,63 +45,63 @@ export class GenerateCustomCodeDto {
 }
 
 export class ApplyReferralCodeDto {
-  @ApiProperty({ description: 'Referral code to apply during signup' })
+  @ApiProperty({ description: 'Referral code to apply during signup', example: 'BUY-A-CAR' })
   @IsString()
   referralCode!: string;
 }
 
 export class ReferralStatsDto {
-  @ApiProperty()
+  @ApiProperty({ example: 'BUY-A-CAR' })
   referralCode!: string | null;
 
-  @ApiProperty()
+  @ApiProperty({ example: 150 })
   totalReferrals!: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: 80 })
   successfulReferrals!: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: 50 })
   pendingRewards!: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: 30 })
   claimedRewards!: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: 5 })
   rank!: number | null;
 }
 
 export class ReferralResponseDto {
-  @ApiProperty()
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   id!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'BUY-A-CAR' })
   referralCode!: string;
 
-  @ApiProperty({ enum: ReferralStatus })
+  @ApiProperty({ enum: ReferralStatus, example: ReferralStatus.PENDING })
   status!: ReferralStatus;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ example: '10.00' })
   rewardAmount?: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ example: 'referee@example.com' })
   refereeEmail?: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: '2026-06-29T10:00:00.000Z' })
   createdAt!: Date;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ example: '2026-06-29T12:00:00.000Z' })
   completedAt?: Date;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ example: '2026-06-29T12:30:00.000Z' })
   rewardedAt?: Date;
 }
 
 export class UpdateReferralStatusDto {
-  @ApiProperty({ enum: ReferralStatus })
+  @ApiProperty({ enum: ReferralStatus, example: ReferralStatus.COMPLETED })
   @IsEnum(ReferralStatus)
   status!: ReferralStatus;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 10 })
   @IsOptional()
   @IsNumber()
   @Min(0)

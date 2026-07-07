@@ -1,10 +1,11 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { firstValueFrom } from 'rxjs';
 import axios, { AxiosError } from 'axios';
 import { ConfigService } from '@nestjs/config';
+import { TestModeService } from '../../common/test-mode/test-mode.service';
 
 export interface PriceData {
   [symbol: string]: {
@@ -35,6 +36,7 @@ export class OracleService {
     private readonly httpService: HttpService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly configService: ConfigService,
+    @Optional() private readonly testModeService?: TestModeService,
   ) {}
 
   /**
@@ -59,6 +61,14 @@ export class OracleService {
    * @returns Object with asset prices
    */
   async getAssetPrices(assetIds: string[]): Promise<PriceData> {
+    if (this.testModeService?.isEnabled) {
+      const stubPrices: PriceData = {};
+      for (const id of assetIds) {
+        stubPrices[id] = { usd: this.FALLBACK_PRICES[id] ?? 1.0 };
+      }
+      return stubPrices;
+    }
+
     const cacheKey = `prices:${assetIds.join(',')}`;
 
     // Try to get from cache first
@@ -145,6 +155,10 @@ export class OracleService {
    * @returns Price in USD
    */
   private async getCachedPrice(assetId: string): Promise<number> {
+    if (this.testModeService?.isEnabled) {
+      return this.FALLBACK_PRICES[assetId] ?? 1.0;
+    }
+
     const cacheKey = `price:${assetId}`;
 
     // Try to get from cache first

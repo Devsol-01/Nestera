@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { StellarService } from './stellar.service';
 import { BalanceSyncService } from './balance-sync.service';
 import { IndexerService } from './indexer.service';
@@ -18,12 +19,14 @@ export class BlockchainController {
   ) {}
 
   @Post('wallets/generate')
+  @Throttle({ rpc: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Generate a new Stellar keypair' })
   generateWallet() {
     return this.stellarService.generateKeypair();
   }
 
   @Get('wallets/:publicKey/transactions')
+  @Throttle({ rpc: { limit: 10, ttl: 60000 } })
   @ApiOperation({
     summary: 'Get recent on-chain transactions for a Stellar wallet',
   })
@@ -44,6 +47,7 @@ export class BlockchainController {
   }
 
   @Get('rpc/status')
+  @Throttle({ rpc: { limit: 10, ttl: 60000 } })
   @ApiOperation({
     summary: 'Get status of all configured RPC endpoints',
     description:

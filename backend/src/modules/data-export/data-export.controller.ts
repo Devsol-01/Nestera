@@ -25,6 +25,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DataExportService } from './data-export.service';
 import { RequestDataExportDto } from './dto/request-data-export.dto';
+import { AsyncResponseBuilder } from '../../common/dto';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -38,11 +39,20 @@ export class DataExportController {
   @Throttle({ export: { limit: 6, ttl: 15 * 60 * 1000 } })
   @ApiOperation({ summary: 'Request a GDPR data export (async)' })
   @ApiResponse({ status: 202, description: 'Export request accepted' })
-  requestExport(
+  async requestExport(
     @CurrentUser() user: { id: string },
     @Body() _dto: RequestDataExportDto,
   ) {
-    return this.dataExportService.requestExport(user.id);
+    const result = await this.dataExportService.requestExport(user.id);
+    return new AsyncResponseBuilder(
+      result.requestId,
+      `/users/data/export/${result.requestId}/status`,
+    )
+      .setMessage(result.message)
+      .setRetryAfterSeconds(10)
+      .setOperationType('data-export')
+      .setStatus('pending')
+      .build();
   }
 
   @Get('export/:requestId/status')

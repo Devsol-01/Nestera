@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   Account,
@@ -16,6 +16,7 @@ import {
 } from '@stellar/stellar-sdk';
 import { TransactionDto } from './dto/transaction.dto';
 import { RpcClientWrapper, RpcEndpoint } from './rpc-client.wrapper';
+import { TestModeService } from '../../common/test-mode/test-mode.service';
 
 const DELEGATION_STORAGE_KEYS = [
   'delegate',
@@ -29,7 +30,10 @@ export class StellarService implements OnModuleInit {
   private readonly logger = new Logger(StellarService.name);
   private rpcClient: RpcClientWrapper;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    @Optional() private readonly testModeService?: TestModeService,
+  ) {
     // Build RPC endpoints array
     const rpcEndpoints: RpcEndpoint[] = [];
     const primaryRpcUrl = this.configService.get<string>('stellar.rpcUrl');
@@ -102,11 +106,20 @@ export class StellarService implements OnModuleInit {
   }
 
   getNetworkPassphrase(): string {
+    if (this.testModeService?.isEnabled) {
+      return (
+        this.testModeService.stellarFixtures.networkPassphrase ??
+        'Test Skeleton Network; June 2018'
+      );
+    }
     const network = this.configService.get<string>('stellar.network');
     return network === 'mainnet' ? Networks.PUBLIC : Networks.TESTNET;
   }
 
   async getHealth() {
+    if (this.testModeService?.isEnabled) {
+      return this.testModeService.stellarFixtures.health ?? { ok: true };
+    }
     try {
       return await this.rpcClient.executeWithRetry(async (client) => {
         return await (client as rpc.Server).getHealth();
@@ -119,24 +132,23 @@ export class StellarService implements OnModuleInit {
 
   // Placeholder for Soroban contract interaction
   async queryContract(contractId: string, method: string) {
+    if (this.testModeService?.isEnabled) {
+      return this.testModeService.stellarFixtures.contractRead ?? {};
+    }
     // Implementation for querying smart contracts
     this.logger.log(`Querying contract ${contractId}, method ${method}`);
     // return this.rpcServer.simulateTransaction(...)
     return Promise.resolve();
   }
 
-  /**
-   * Invoke a read-only contract method and return the result
-   * @param contractId - The Soroban contract ID
-   * @param functionName - The method name to invoke
-   * @param args - Optional arguments to pass to the method
-   * @returns The result from the contract method parsed to native JS primitives
-   */
   async invokeContractRead(
     contractId: string,
     functionName: string,
     args: any[] = [],
   ): Promise<any> {
+    if (this.testModeService?.isEnabled) {
+      return this.testModeService.stellarFixtures.contractRead ?? {};
+    }
     try {
       return await this.rpcClient.executeWithRetry(async (client) => {
         const rpcServer = client as rpc.Server;
@@ -185,6 +197,9 @@ export class StellarService implements OnModuleInit {
     contractIds: string[],
     options: { endLedger?: number; cursor?: string } = {},
   ): Promise<any[]> {
+    if (this.testModeService?.isEnabled) {
+      return this.testModeService.stellarFixtures.events ?? [];
+    }
     try {
       return await this.rpcClient.executeWithRetry(async (client) => {
         const rpcServer = client as rpc.Server;
@@ -217,6 +232,9 @@ export class StellarService implements OnModuleInit {
   }
 
   async getDelegationForUser(publicKey: string): Promise<string | null> {
+    if (this.testModeService?.isEnabled) {
+      return this.testModeService.stellarFixtures.delegation ?? null;
+    }
     const contractId = this.configService.get<string>('stellar.contractId');
     if (!contractId || !publicKey) {
       return null;
@@ -290,6 +308,10 @@ export class StellarService implements OnModuleInit {
     publicKey: string,
     limit = 10,
   ): Promise<TransactionDto[]> {
+    if (this.testModeService?.isEnabled) {
+      return (this.testModeService.stellarFixtures.transactions ??
+        []) as TransactionDto[];
+    }
     try {
       return await this.rpcClient.executeWithRetry(async (client) => {
         const horizonServer = client as Horizon.Server;

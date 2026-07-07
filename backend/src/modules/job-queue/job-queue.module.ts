@@ -39,6 +39,9 @@ const defaultJobOptions = {
       AvatarUpload,
       User,
       ReportSchedule,
+    ]),
+    TypeOrmModule.forFeature([Notification, AuditLog]),
+    TypeOrmModule.forFeature([DisputeEvidence]),
       AuditLog,
     ]),
     BullModule.forRootAsync({

@@ -8,15 +8,15 @@ import {
 } from 'class-validator';
 
 export class CreateChallengeDto {
-  @ApiProperty()
+  @ApiProperty({ example: '7-Day Savings Streak' })
   @IsString()
   title: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'Deposit at least $10 every day for 7 consecutive days' })
   @IsString()
   description: string;
 
-  @ApiProperty({ minimum: 1 })
+  @ApiProperty({ minimum: 1, example: 10 })
   @IsNumber()
   @Min(1)
   targetAmount: number;
@@ -25,11 +25,11 @@ export class CreateChallengeDto {
   @IsDateString()
   startsAt: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: '2026-07-07T00:00:00.000Z' })
   @IsDateString()
   endsAt: string;
 
-  @ApiPropertyOptional({ default: 'Challenger' })
+  @ApiPropertyOptional({ default: 'Challenger', example: 'Challenger' })
   @IsOptional()
   @IsString()
   badgeName?: string;

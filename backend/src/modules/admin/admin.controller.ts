@@ -22,6 +22,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AdminHighRisk } from '../../common/decorators/admin-high-risk.decorator';
 import { Role } from '../../common/enums/role.enum';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import { RateLimitMonitorService } from '../../common/services/rate-limit-monitor.service';
 import { ApproveKycDto, RejectKycDto } from '../user/dto/update-user.dto';
 
@@ -38,6 +39,7 @@ export class AdminController {
 
   @Patch('users/:id/kyc/approve')
   @AdminHighRisk()
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary: 'Approve KYC for a user',
     description: 'High-risk operation. Requires confirmation on first attempt.',
@@ -57,6 +59,7 @@ export class AdminController {
 
   @Patch('users/:id/kyc/reject')
   @AdminHighRisk()
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary: 'Reject KYC for a user',
     description: 'High-risk operation. Requires confirmation on first attempt.',
@@ -82,6 +85,7 @@ export class AdminController {
 
   @Patch('users/:id/kyc')
   @AdminHighRisk()
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary: 'Update KYC status (approve or reject)',
     description:

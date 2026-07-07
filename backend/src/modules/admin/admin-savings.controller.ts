@@ -25,6 +25,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { ExperimentsService } from '../savings/experiments.service';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import {
   ProductCapacitySnapshot,
   SavingsService,
@@ -48,6 +49,7 @@ export class AdminSavingsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Create a savings product' })
   createProduct(@Body() dto: CreateProductDto) {
     return this.adminSavingsService.createProduct(dto);
@@ -89,6 +91,7 @@ export class AdminSavingsController {
   }
 
   @Post('products/:id/subscriptions/override')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary: 'Create a subscription with admin override for limit checks',
   })
@@ -110,6 +113,7 @@ export class AdminSavingsController {
   }
 
   @Post('experiments')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Create a savings product experiment (admin)' })
   @ApiResponse({ status: 201, description: 'Experiment created' })
   async createExperiment(

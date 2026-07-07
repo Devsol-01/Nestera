@@ -29,6 +29,8 @@ describe('TransactionsService', () => {
     addOrderBy: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
+    timeout: jest.fn().mockReturnThis(),
+    setParameters: jest.fn().mockReturnThis(),
     getMany: jest.fn(),
     getCount: jest.fn(),
     getManyAndCount: jest.fn(),
@@ -196,6 +198,26 @@ describe('TransactionsService', () => {
       await service.findAllForUser(userId, queryDto);
 
       expect(mockQueryBuilder.skip).toHaveBeenCalledWith(50); // (page 2 - 1) * 50
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(51);
+    });
+
+    it('should use relevance ordering and capped pagination for search queries', async () => {
+      const queryDto = Object.assign(new TransactionQueryDto(), {
+        page: 2,
+        limit: 200,
+        search: 'memo-123',
+      });
+
+      mockQueryBuilder.getMany.mockResolvedValue([]);
+
+      await service.findAllForUser(userId, queryDto);
+
+      expect(mockQueryBuilder.timeout).toHaveBeenCalledWith(2000);
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
+        expect.stringContaining('CASE'),
+        'DESC',
+      );
+      expect(mockQueryBuilder.skip).toHaveBeenCalledWith(50);
       expect(mockQueryBuilder.take).toHaveBeenCalledWith(51);
     });
   });

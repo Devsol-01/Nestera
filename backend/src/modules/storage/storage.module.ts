@@ -6,6 +6,7 @@ import { StorageController } from './storage.controller';
 import { LocalStorageProvider } from './providers/local-storage.provider';
 import { S3StorageProvider } from './providers/s3-storage.provider';
 import { FileUploadConfigService } from './file-upload-config.service';
+import { StorageCleanupService } from './storage-cleanup.service';
 import { AuthModule } from '../../auth/auth.module';
 
 @Module({
@@ -17,6 +18,7 @@ import { AuthModule } from '../../auth/auth.module';
     LocalStorageProvider,
     S3StorageProvider,
     FileUploadConfigService,
+    StorageCleanupService,
   ],
   exports: [StorageService, StorageAccessService, FileUploadConfigService],
 })

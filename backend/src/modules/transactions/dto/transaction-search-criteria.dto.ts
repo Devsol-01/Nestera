@@ -35,8 +35,8 @@ function toStringArray(value: unknown): string[] | undefined {
 export class TransactionSearchCriteriaDto {
   @ApiPropertyOptional({
     description:
-      'Free-text search across hash, event ID, pool ID, tags, metadata, and more',
-    example: 'yield pool-1',
+      'Free-text search with relevance scoring across transaction hash, memo, reference IDs, descriptions, tags, and metadata. Exact matches rank highest, followed by prefix matches and partial text matches. Search requests use bounded execution time and a capped result size.',
+    example: 'memo-123',
   })
   @IsOptional()
   @IsString()

@@ -49,4 +49,13 @@ export const envValidationSchema = Joi.object({
   MAIL_PASS: Joi.string().optional(),
   MAIL_FROM: Joi.string().optional(),
   MAIL_PROVIDERS: Joi.string().optional(),
+
+  // ── Compression (response + request body) ──────────────────────────────────
+  COMPRESSION_THRESHOLD: Joi.number().integer().min(0).default(1024).optional(),
+  JSON_BODY_LIMIT: Joi.string().default('1mb').optional(),
+  URLENCODED_BODY_LIMIT: Joi.string().default('1mb').optional(),
+  // Inbound gzip/deflate request body decompression and zip-bomb safety limit.
+  REQUEST_DECOMPRESSION_ENABLED: Joi.boolean().default(true).optional(),
+  REQUEST_ALLOWED_ENCODINGS: Joi.string().default('gzip,deflate').optional(),
+  REQUEST_MAX_DECOMPRESSED_SIZE: Joi.string().optional(),
 }).or('DATABASE_URL', 'DB_HOST'); // enforce at least one DB connection strategy

@@ -15,6 +15,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import { ReferralsService } from './referrals.service';
 import {
   CreateReferralDto,
@@ -30,6 +31,7 @@ export class ReferralsController {
   constructor(private readonly referralsService: ReferralsService) {}
 
   @Post('generate')
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({ summary: 'Generate a referral code for the current user' })
   @ApiResponse({
     status: 201,
@@ -76,6 +78,7 @@ export class ReferralsController {
 
   @Post('check-completion')
   @HttpCode(HttpStatus.OK)
+  @Idempotent({ ttlSeconds: 86400 })
   @ApiOperation({
     summary: 'Internal: Check if referral should be completed after deposit',
   })

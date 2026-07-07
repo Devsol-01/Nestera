@@ -14,41 +14,44 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { SavingsGoalShareVisibility } from '../entities/savings-goal-share.entity';
 
 export class UpdateGoalSharingDto {
-  @ApiProperty({ enum: SavingsGoalShareVisibility })
+  @ApiProperty({ enum: SavingsGoalShareVisibility, example: SavingsGoalShareVisibility.PRIVATE })
   @IsEnum(SavingsGoalShareVisibility)
   visibility: SavingsGoalShareVisibility;
 
-  @ApiPropertyOptional({ default: false })
+  @ApiPropertyOptional({ default: false, example: false })
   @IsOptional()
   @IsBoolean()
   isDirectoryListed?: boolean;
 
-  @ApiPropertyOptional({ default: true })
+  @ApiPropertyOptional({ default: true, example: true })
   @IsOptional()
   @IsBoolean()
   showProgress?: boolean;
 
-  @ApiPropertyOptional({ default: false })
+  @ApiPropertyOptional({ default: false, example: false })
   @IsOptional()
   @IsBoolean()
   showTargetAmount?: boolean;
 
-  @ApiPropertyOptional({ default: true })
+  @ApiPropertyOptional({ default: true, example: true })
   @IsOptional()
   @IsBoolean()
   showOwnerName?: boolean;
 
-  @ApiPropertyOptional({ default: true })
+  @ApiPropertyOptional({ default: true, example: true })
   @IsOptional()
   @IsBoolean()
   allowSocialSharing?: boolean;
 
-  @ApiPropertyOptional({ default: true })
+  @ApiPropertyOptional({ default: true, example: true })
   @IsOptional()
   @IsBoolean()
   allowProgressUpdates?: boolean;
 
-  @ApiPropertyOptional({ type: [String] })
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['123e4567-e89b-12d3-a456-426614174000'],
+  })
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(100)
@@ -57,28 +60,28 @@ export class UpdateGoalSharingDto {
 }
 
 export class CreateShareLinkDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: '2027-01-01T00:00:00.000Z' })
   @IsOptional()
   @IsDateString()
   expiresAt?: string;
 }
 
 export class PublicGoalDirectoryQueryDto {
-  @ApiPropertyOptional({ default: 1 })
+  @ApiPropertyOptional({ default: 1, example: 1 })
   @IsOptional()
   page?: number;
 
-  @ApiPropertyOptional({ default: 20 })
+  @ApiPropertyOptional({ default: 20, example: 20 })
   @IsOptional()
   limit?: number;
 }
 
 export class SocialShareDto {
-  @ApiProperty({ enum: ['x', 'facebook', 'linkedin', 'whatsapp', 'copy'] })
+  @ApiProperty({ enum: ['x', 'facebook', 'linkedin', 'whatsapp', 'copy'], example: 'x' })
   @IsIn(['x', 'facebook', 'linkedin', 'whatsapp', 'copy'])
   platform: 'x' | 'facebook' | 'linkedin' | 'whatsapp' | 'copy';
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 'Come check out my savings goal!' })
   @IsOptional()
   @IsString()
   @MaxLength(280)

@@ -7,11 +7,11 @@ export class KycWebhookDto {
   @IsString()
   providerReference!: string;
 
-  @ApiProperty({ enum: KycVerificationStatus })
+  @ApiProperty({ enum: KycVerificationStatus, example: KycVerificationStatus.APPROVED })
   @IsEnum(KycVerificationStatus)
   status!: KycVerificationStatus;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ example: 'Document verified successfully' })
   @IsOptional()
   @IsString()
   reason?: string;

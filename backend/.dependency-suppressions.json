@@ -1,0 +1,6 @@
+[
+  {
+    "advisoryId": "1099520",
+    "justification": "Pending upstream body-parser upgrade while the backend migration to the patched version is validated."
+  }
+]

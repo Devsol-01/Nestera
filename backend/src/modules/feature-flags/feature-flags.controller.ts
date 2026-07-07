@@ -23,6 +23,9 @@ import { FeatureFlagsService } from './feature-flags.service';
 import { CreateFlagDto } from './dto/create-flag.dto';
 import { UpdateFlagDto } from './dto/update-flag.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum';
 
 @ApiTags('Feature Flags')
 @Controller('feature-flags')
@@ -63,7 +66,8 @@ export class FeatureFlagsController {
 
   /** Admin: get a single flag */
   @Get(':key')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Get a specific feature flag' })
   findOne(@Param('key') key: string) {
@@ -72,7 +76,8 @@ export class FeatureFlagsController {
 
   /** Admin: create a flag */
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Create a feature flag' })
   @ApiResponse({ status: 201, description: 'Flag created' })
@@ -82,7 +87,8 @@ export class FeatureFlagsController {
 
   /** Admin: update a flag */
   @Put(':key')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Update a feature flag' })
   update(@Param('key') key: string, @Body() dto: UpdateFlagDto) {
@@ -91,7 +97,8 @@ export class FeatureFlagsController {
 
   /** Admin: toggle a flag on/off */
   @Patch(':key/toggle')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @ApiBearerAuth('JWT')
   @ApiOperation({ summary: 'Toggle a feature flag on/off' })
   toggle(@Param('key') key: string) {
@@ -100,7 +107,8 @@ export class FeatureFlagsController {
 
   /** Admin: delete a flag */
   @Delete(':key')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @ApiBearerAuth('JWT')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a feature flag' })

@@ -47,6 +47,9 @@ export class Notification {
   @Column('uuid')
   userId: string;
 
+  @Column('uuid', { nullable: true })
+  tenantId: string | null;
+
   @Column({ type: 'enum', enum: NotificationType })
   type: NotificationType;
 

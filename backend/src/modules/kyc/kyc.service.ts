@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -18,6 +19,7 @@ import {
 } from './entities/kyc-verification.entity';
 import { InitiateKycDto } from './dto/initiate-kyc.dto';
 import { KycWebhookDto } from './dto/kyc-webhook.dto';
+import { TestModeService } from '../../common/test-mode/test-mode.service';
 
 @Injectable()
 export class KycService {
@@ -32,6 +34,7 @@ export class KycService {
     private readonly userRepository: Repository<User>,
     private readonly configService: ConfigService,
     private readonly piiEncryptionService: PiiEncryptionService,
+    @Optional() private readonly testModeService?: TestModeService,
   ) {}
 
   async initiateVerification(userId: string, dto: InitiateKycDto) {
@@ -181,6 +184,15 @@ export class KycService {
   }
 
   private async createProviderCheck(user: User, dto: InitiateKycDto) {
+    if (this.testModeService?.isEnabled) {
+      const providerReference = `test_${dto.provider.toLowerCase()}_${Date.now()}`;
+      return {
+        providerReference,
+        verificationUrl: `https://test-mode.kyc/session/${providerReference}`,
+        raw: { testMode: true, provider: dto.provider, userEmail: user.email },
+      };
+    }
+
     const baseUrl = this.configService.get<string>('KYC_PROVIDER_BASE_URL');
     const apiKey = this.configService.get<string>('KYC_PROVIDER_API_KEY');
 

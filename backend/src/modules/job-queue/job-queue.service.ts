@@ -1,7 +1,12 @@
+import { createHash } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue, JobsOptions } from 'bullmq';
 import { QUEUE_NAMES, JOB_NAMES } from './job-queue.constants';
+
+export interface JobQueueAddOptions extends JobsOptions {
+  idempotencyKey?: string;
+}
 
 export interface NotificationJobData {
   userId: string;
@@ -9,6 +14,7 @@ export interface NotificationJobData {
   title: string;
   message: string;
   metadata?: Record<string, any>;
+  correlationId?: string;
 }
 
 export interface EmailJobData {
@@ -16,6 +22,7 @@ export interface EmailJobData {
   subject: string;
   template: string;
   context: Record<string, any>;
+  correlationId?: string;
 }
 
 export interface BlockchainJobData {
@@ -23,6 +30,7 @@ export interface BlockchainJobData {
   contractId: string;
   eventType: string;
   rawEvent: Record<string, any>;
+  correlationId?: string;
 }
 
 export interface ReportJobData {
@@ -30,6 +38,7 @@ export interface ReportJobData {
   userId: string;
   params: Record<string, any>;
   scheduleId?: string;
+  correlationId?: string;
 }
 
 export interface DisputeEvidenceJobData {
@@ -39,6 +48,7 @@ export interface DisputeEvidenceJobData {
   mimeType: string;
   originalFilename: string;
   uploadedBy: string;
+  correlationId?: string;
 }
 
 export interface AvatarJobData {
@@ -47,6 +57,7 @@ export interface AvatarJobData {
   storagePath: string;
   mimeType: string;
   originalFilename: string;
+  correlationId?: string;
 }
 
 export interface AuditLogExportJobData {
@@ -60,6 +71,7 @@ export interface AuditLogExportJobData {
   };
   format: 'csv' | 'json';
   requestedBy: string;
+  correlationId?: string;
 }
 
 @Injectable()
@@ -83,73 +95,128 @@ export class JobQueueService {
     private readonly auditLogExportQueue: Queue,
   ) {}
 
-  async addNotificationJob(data: NotificationJobData, opts?: JobsOptions) {
+  async addNotificationJob(
+    data: NotificationJobData,
+    opts?: JobsOptions,
+    correlationId?: string,
+  ) {
     const job = await this.notificationQueue.add(
+    opts?: JobQueueAddOptions,
+  ) {
+    const entityId = `${data.userId}-${data.type}`;
+    const job = await this.enqueueJob(
+      this.notificationQueue,
       JOB_NAMES.SEND_NOTIFICATION,
-      data,
+      { ...data, correlationId },
       opts,
+      entityId,
     );
     this.logger.debug(
-      `Queued notification job ${job.id} for user ${data.userId}`,
+      `Queued notification job ${job.id} for user ${data.userId}${correlationId ? ` correlationId=${correlationId}` : ''}`,
     );
     return job;
   }
 
-  async addEmailJob(data: EmailJobData, opts?: JobsOptions) {
-    const job = await this.emailQueue.add(JOB_NAMES.SEND_EMAIL, data, opts);
-    this.logger.debug(`Queued email job ${job.id} to ${data.to}`);
+  async addEmailJob(
+    data: EmailJobData,
+    opts?: JobsOptions,
+    correlationId?: string,
+  ) {
+    const job = await this.emailQueue.add(JOB_NAMES.SEND_EMAIL, { ...data, correlationId }, opts);
+    this.logger.debug(`Queued email job ${job.id} to ${data.to}${correlationId ? ` correlationId=${correlationId}` : ''}`);
     return job;
   }
 
-  async addBlockchainJob(data: BlockchainJobData, opts?: JobsOptions) {
+  async addBlockchainJob(
+    data: BlockchainJobData,
+    opts?: JobsOptions,
+    correlationId?: string,
+  ) {
     const job = await this.blockchainQueue.add(
       JOB_NAMES.PROCESS_BLOCKCHAIN_EVENT,
-      data,
+      { ...data, correlationId },
       {
         ...opts,
         jobId: `blockchain-${data.eventId}`,
       },
+  async addEmailJob(data: EmailJobData, opts?: JobQueueAddOptions) {
+    const entityId = `${data.to}-${data.subject}-${data.template}`;
+    const job = await this.enqueueJob(
+      this.emailQueue,
+      JOB_NAMES.SEND_EMAIL,
+      data,
+      opts,
+      entityId,
+    );
+    this.logger.debug(`Queued email job ${job.id} to ${data.to}`);
+    return job;
+  }
+
+  async addBlockchainJob(data: BlockchainJobData, opts?: JobQueueAddOptions) {
+    const job = await this.enqueueJob(
+      this.blockchainQueue,
+      JOB_NAMES.PROCESS_BLOCKCHAIN_EVENT,
+      data,
+      { ...opts, jobId: opts?.jobId ?? `blockchain-${data.eventId}` },
+      data.eventId,
     );
     this.logger.debug(
-      `Queued blockchain job ${job.id} for event ${data.eventId}`,
+      `Queued blockchain job ${job.id} for event ${data.eventId}${correlationId ? ` correlationId=${correlationId}` : ''}`,
     );
     return job;
   }
 
-  async addReportJob(data: ReportJobData, opts?: JobsOptions) {
+  async addReportJob(
+    data: ReportJobData,
+    opts?: JobsOptions,
+    correlationId?: string,
+  ) {
     const job = await this.reportQueue.add(
+  async addReportJob(data: ReportJobData, opts?: JobQueueAddOptions) {
+    const entityId = data.scheduleId ?? `${data.userId}-${data.reportType}`;
+    const job = await this.enqueueJob(
+      this.reportQueue,
       JOB_NAMES.GENERATE_REPORT,
-      data,
+      { ...data, correlationId },
       opts,
+      entityId,
     );
-    this.logger.debug(`Queued report job ${job.id} type=${data.reportType}`);
+    this.logger.debug(`Queued report job ${job.id} type=${data.reportType}${correlationId ? ` correlationId=${correlationId}` : ''}`);
     return job;
   }
 
   async addEvidenceProcessingJob(
     data: DisputeEvidenceJobData,
     opts?: JobsOptions,
+    correlationId?: string,
+    opts?: JobQueueAddOptions,
   ) {
-    const job = await this.disputeEvidenceQueue.add(
+    const job = await this.enqueueJob(
+      this.disputeEvidenceQueue,
       JOB_NAMES.PROCESS_DISPUTE_EVIDENCE,
-      data,
+      { ...data, correlationId },
       {
         ...opts,
-        jobId: `evidence-${data.evidenceId}`,
+        jobId: opts?.jobId ?? `evidence-${data.evidenceId}`,
         attempts: 3,
         backoff: { type: 'exponential', delay: 3000 },
         removeOnComplete: { count: 200 },
         removeOnFail: { count: 500 },
       },
+      data.evidenceId,
     );
     this.logger.debug(
-      `Queued evidence processing job ${job.id} for evidenceId=${data.evidenceId} disputeId=${data.disputeId}`,
+      `Queued evidence processing job ${job.id} for evidenceId=${data.evidenceId} disputeId=${data.disputeId}${correlationId ? ` correlationId=${correlationId}` : ''}`,
     );
     return job;
   }
 
-  async addAvatarProcessingJob(data: AvatarJobData, opts?: JobsOptions) {
-    const job = await this.avatarQueue.add(JOB_NAMES.PROCESS_AVATAR, data, {
+  async addAvatarProcessingJob(
+    data: AvatarJobData,
+    opts?: JobsOptions,
+    correlationId?: string,
+  ) {
+    const job = await this.avatarQueue.add(JOB_NAMES.PROCESS_AVATAR, { ...data, correlationId }, {
       ...opts,
       jobId: `avatar-${data.uploadId}`,
       attempts: 3,
@@ -157,26 +224,57 @@ export class JobQueueService {
       removeOnComplete: { count: 200 },
       removeOnFail: { count: 500 },
     });
+  async addAvatarProcessingJob(data: AvatarJobData, opts?: JobQueueAddOptions) {
+    const job = await this.enqueueJob(
+      this.avatarQueue,
+      JOB_NAMES.PROCESS_AVATAR,
+      data,
+      {
+        ...opts,
+        jobId: opts?.jobId ?? `avatar-${data.uploadId}`,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 },
+        removeOnComplete: { count: 200 },
+        removeOnFail: { count: 500 },
+      },
+      data.uploadId,
+    );
     this.logger.debug(
-      `Queued avatar processing job ${job.id} for uploadId=${data.uploadId} userId=${data.userId}`,
+      `Queued avatar processing job ${job.id} for uploadId=${data.uploadId} userId=${data.userId}${correlationId ? ` correlationId=${correlationId}` : ''}`,
     );
     return job;
   }
 
-  async addAuditLogExportJob(data: AuditLogExportJobData, opts?: JobsOptions) {
+  async addAuditLogExportJob(
+    data: AuditLogExportJobData,
+    opts?: JobsOptions,
+    correlationId?: string,
+  ) {
     const job = await this.auditLogExportQueue.add(
+    opts?: JobQueueAddOptions,
+  ) {
+    const filterHash = createHash('sha256')
+      .update(JSON.stringify(data.filters ?? {}))
+      .digest('hex')
+      .slice(0, 8);
+    const job = await this.enqueueJob(
+      this.auditLogExportQueue,
       JOB_NAMES.EXPORT_AUDIT_LOGS,
-      data,
+      { ...data, correlationId },
       {
         ...opts,
+        jobId:
+          opts?.jobId ??
+          `audit-export-${data.requestedBy}-${data.format}-${filterHash}`,
         attempts: 3,
         backoff: { type: 'exponential', delay: 2000 },
         removeOnComplete: { count: 100 },
         removeOnFail: { count: 500 },
       },
+      `${data.requestedBy}-${filterHash}`,
     );
     this.logger.debug(
-      `Queued audit log export job ${job.id} for admin ${data.requestedBy}`,
+      `Queued audit log export job ${job.id} for admin ${data.requestedBy}${correlationId ? ` correlationId=${correlationId}` : ''}`,
     );
     return job;
   }
@@ -227,6 +325,57 @@ export class JobQueueService {
 
     await job.retry();
     return { jobId, status: 'retried' };
+  }
+
+  private async enqueueJob<T extends object>(
+    queue: Queue,
+    name: string,
+    data: T,
+    opts?: JobQueueAddOptions,
+    entityId?: string,
+  ) {
+    const jobId =
+      opts?.jobId ??
+      (entityId ? this.buildJobId(name, entityId, opts) : undefined);
+    const { idempotencyKey, ...jobOptions } = opts ?? {};
+    try {
+      return await queue.add(name, data, { ...jobOptions, jobId });
+    } catch (error) {
+      if (jobId && this.isDuplicateJobError(error)) {
+        const existing = await queue.getJob(jobId);
+        if (existing) return existing;
+      }
+      throw error;
+    }
+  }
+
+  private buildJobId(
+    actionType: string,
+    entityId: string,
+    opts?: JobQueueAddOptions,
+  ): string {
+    const parts = [actionType, entityId];
+    if (opts?.idempotencyKey) {
+      parts.push(opts.idempotencyKey);
+    }
+    return parts
+      .filter(Boolean)
+      .map((segment) =>
+        String(segment)
+          .trim()
+          .replace(/[^a-zA-Z0-9_-]+/g, '-')
+          .replace(/^-+|-+$/g, ''),
+      )
+      .join('--');
+  }
+
+  private isDuplicateJobError(error: unknown): boolean {
+    const err = error as { name?: string; message?: string };
+    return Boolean(
+      err?.name === 'JobAlreadyExistsError' ||
+      err?.message?.includes('Job already exists') ||
+      err?.message?.includes('already exists'),
+    );
   }
 
   private getQueue(queueName: string): Queue | null {

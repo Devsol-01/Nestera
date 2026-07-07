@@ -22,6 +22,10 @@ import {
 } from '../dto/standard-error-response.dto';
 import { ErrorCodeRegistry } from '../services/error-code-registry.service';
 import { ApplicationException } from '../exceptions/application.exception';
+import {
+  flattenValidationErrors,
+  ClassValidatorErrorLike,
+} from '../validators/validation-error.utils';
 
 /**
  * Patterns emitted by RpcClientWrapper that indicate a Soroban/Horizon
@@ -38,13 +42,6 @@ const DB_CONNECTION_PATTERNS = [
   /connection timeout/i,
   /connect etimedout/i,
 ];
-
-interface ClassValidatorError {
-  property: string;
-  value?: unknown;
-  constraints?: Record<string, string>;
-  children?: ClassValidatorError[];
-}
 
 interface ClassifiedError {
   code: string;
@@ -252,7 +249,7 @@ export class EnhancedExceptionFilter implements ExceptionFilter {
 
     // Check if it's class-validator format
     if (message.length > 0 && typeof message[0] === 'object') {
-      return this.formatClassValidatorErrors(message);
+        return flattenValidationErrors(message as ClassValidatorErrorLike[]);
     }
 
     // Check if it's already formatted errors
@@ -265,38 +262,6 @@ export class EnhancedExceptionFilter implements ExceptionFilter {
     }
 
     return [];
-  }
-
-  private formatClassValidatorErrors(
-    errors: ClassValidatorError[],
-    parentField = '',
-  ): ValidationError[] {
-    const result: ValidationError[] = [];
-
-    for (const error of errors) {
-      const field = parentField
-        ? `${parentField}.${error.property}`
-        : error.property;
-
-      if (error.constraints && Object.keys(error.constraints).length > 0) {
-        result.push({
-          field,
-          value: error.value,
-          constraints: error.constraints,
-        });
-      }
-
-      // Recursively handle nested errors
-      if (error.children && error.children.length > 0) {
-        const childErrors = this.formatClassValidatorErrors(
-          error.children,
-          field,
-        );
-        result.push(...childErrors);
-      }
-    }
-
-    return result;
   }
 
   private buildResponse(

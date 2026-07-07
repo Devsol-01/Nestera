@@ -26,6 +26,9 @@ import { TransactionSortBy } from './dto/transaction-search-criteria.dto';
 
 @Injectable()
 export class TransactionsService {
+  private static readonly SEARCH_QUERY_TIMEOUT_MS = 2000;
+  private static readonly SEARCH_MAX_RESULTS = 50;
+
   private readonly sortableColumns = {
     createdAt: 'transaction.createdAt',
     amount: 'transaction.amount',
@@ -52,7 +55,8 @@ export class TransactionsService {
     }
 
     const queryBuilder = this.buildQuery(userId, queryDto);
-    const pageSize = queryDto.pageSize;
+    const pageSize = this.getSafePageSize(queryDto);
+    const skip = this.getSafeSkip(queryDto, pageSize);
 
     if (queryDto.cursor) {
       const cursor = decodeCursor(queryDto.cursor);
@@ -66,7 +70,7 @@ export class TransactionsService {
         },
       );
     } else {
-      queryBuilder.skip(queryDto.skip);
+      queryBuilder.skip(skip);
     }
     queryBuilder.take(pageSize + 1);
 
@@ -180,9 +184,11 @@ export class TransactionsService {
   }
 
   async listSavedSearches(userId: string): Promise<SavedSearchResponseDto[]> {
+    // Stable sort: isDefault first, then most recently updated, then id as a
+    // tie-breaker so concurrent updates at the same millisecond are deterministic.
     const rows = await this.savedSearchRepository.find({
       where: { userId },
-      order: { isDefault: 'DESC', updatedAt: 'DESC' },
+      order: { isDefault: 'DESC', updatedAt: 'DESC', id: 'ASC' },
     });
 
     return rows.map((row) => this.toSavedSearchResponse(row));
@@ -376,10 +382,75 @@ export class TransactionsService {
       this.sortableColumns[sortBy] ?? this.sortableColumns.createdAt;
     const order = queryDto.order ?? Order.DESC;
 
+    if (queryDto.search?.trim()) {
+      const searchText = queryDto.search.trim();
+      const searchLike = `%${searchText}%`;
+      const searchPrefix = `${searchText}%`;
+
+      (queryBuilder as unknown as { timeout: (ms: number) => void }).timeout(
+        TransactionsService.SEARCH_QUERY_TIMEOUT_MS,
+      );
+      queryBuilder.orderBy(
+        `CASE
+          WHEN LOWER(COALESCE(transaction."txHash", '')) = LOWER(:searchText) THEN 120
+          WHEN LOWER(COALESCE(transaction."txHash", '')) LIKE LOWER(:searchPrefix) THEN 110
+          WHEN LOWER(COALESCE(transaction."eventId", '')) = LOWER(:searchText) THEN 105
+          WHEN LOWER(COALESCE(transaction."eventId", '')) LIKE LOWER(:searchPrefix) THEN 100
+          WHEN LOWER(COALESCE(transaction."publicKey", '')) = LOWER(:searchText) THEN 95
+          WHEN LOWER(COALESCE(transaction."publicKey", '')) LIKE LOWER(:searchPrefix) THEN 90
+          WHEN LOWER(COALESCE(transaction."poolId", '')) = LOWER(:searchText) THEN 85
+          WHEN LOWER(COALESCE(transaction."poolId", '')) LIKE LOWER(:searchPrefix) THEN 80
+          WHEN LOWER(COALESCE(transaction.category, '')) = LOWER(:searchText) THEN 75
+          WHEN LOWER(COALESCE(transaction.category, '')) LIKE LOWER(:searchPrefix) THEN 70
+          WHEN LOWER(COALESCE(transaction.metadata->>'memo', '')) = LOWER(:searchText) THEN 65
+          WHEN LOWER(COALESCE(transaction.metadata->>'memo', '')) LIKE LOWER(:searchPrefix) THEN 60
+          WHEN LOWER(COALESCE(transaction.metadata->>'description', '')) = LOWER(:searchText) THEN 55
+          WHEN LOWER(COALESCE(transaction.metadata->>'description', '')) LIKE LOWER(:searchPrefix) THEN 50
+          WHEN LOWER(COALESCE(transaction.metadata->>'referenceId', '')) = LOWER(:searchText) THEN 48
+          WHEN LOWER(COALESCE(transaction.metadata->>'referenceId', '')) LIKE LOWER(:searchPrefix) THEN 46
+          WHEN LOWER(COALESCE(transaction.metadata->>'reference_id', '')) = LOWER(:searchText) THEN 44
+          WHEN LOWER(COALESCE(transaction.metadata->>'reference_id', '')) LIKE LOWER(:searchPrefix) THEN 42
+          WHEN LOWER(COALESCE(transaction.metadata->>'userReferenceId', '')) = LOWER(:searchText) THEN 40
+          WHEN LOWER(COALESCE(transaction.metadata->>'userReferenceId', '')) LIKE LOWER(:searchPrefix) THEN 38
+          WHEN LOWER(COALESCE(transaction.metadata->>'user_reference_id', '')) = LOWER(:searchText) THEN 36
+          WHEN LOWER(COALESCE(transaction.metadata->>'user_reference_id', '')) LIKE LOWER(:searchPrefix) THEN 34
+          WHEN LOWER(COALESCE(transaction.metadata::text, '')) LIKE LOWER(:searchLike) THEN 20
+          WHEN LOWER(COALESCE(transaction.status::text, '')) LIKE LOWER(:searchLike) THEN 15
+          WHEN LOWER(COALESCE(transaction.type::text, '')) LIKE LOWER(:searchLike) THEN 12
+          WHEN LOWER(CAST(transaction.amount AS TEXT)) LIKE LOWER(:searchLike) THEN 10
+          WHEN LOWER(COALESCE(array_to_string(transaction.tags, ' '), '')) LIKE LOWER(:searchLike) THEN 8
+          ELSE 0
+        END`,
+        'DESC',
+      );
+      queryBuilder.addOrderBy(orderByColumn, order);
+      queryBuilder.addOrderBy('transaction.id', order);
+
+      queryBuilder.setParameters({
+        searchText,
+        searchPrefix,
+        searchLike,
+      });
+
+      return queryBuilder;
+    }
+
     queryBuilder.orderBy(orderByColumn, order);
     queryBuilder.addOrderBy('transaction.id', order);
 
     return queryBuilder;
+  }
+
+  private getSafePageSize(queryDto: TransactionQueryDto): number {
+    const maxResults = queryDto.search?.trim()
+      ? TransactionsService.SEARCH_MAX_RESULTS
+      : 100;
+
+    return Math.min(Math.max(queryDto.pageSize, 1), maxResults);
+  }
+
+  private getSafeSkip(queryDto: TransactionQueryDto, pageSize: number): number {
+    return ((queryDto.page ?? 1) - 1) * pageSize;
   }
 
   private transformToResponseDto(

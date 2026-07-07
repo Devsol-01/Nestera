@@ -65,15 +65,14 @@ export class UpdateGoalTransferScheduleDto {
 }
 
 export class GoalTransferScheduleResponseDto {
-  @ApiProperty() id: string;
-  @ApiProperty() userId: string;
-  @ApiProperty() goalId: string;
-  @ApiPropertyOptional() productId: string | null;
-  @ApiProperty() amount: number;
-  @ApiProperty({ enum: GoalTransferFrequency })
-  frequency: GoalTransferFrequency;
-  @ApiProperty({ enum: GoalTransferStatus }) status: GoalTransferStatus;
-  @ApiProperty() nextRunAt: Date;
-  @ApiProperty() createdAt: Date;
-  @ApiProperty() updatedAt: Date;
+  @ApiProperty({ example: 'a3d4c2b1-4567-8901-cdef-234567890123' }) id: string;
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' }) userId: string;
+  @ApiProperty({ example: 'b2c3d4e5-1234-5678-90ab-cdef01234568' }) goalId: string;
+  @ApiPropertyOptional({ example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' }) productId: string | null;
+  @ApiProperty({ example: 50 }) amount: number;
+  @ApiProperty({ enum: GoalTransferFrequency, example: GoalTransferFrequency.MONTHLY }) frequency: GoalTransferFrequency;
+  @ApiProperty({ enum: GoalTransferStatus, example: GoalTransferStatus.ACTIVE }) status: GoalTransferStatus;
+  @ApiProperty({ example: '2026-04-15T10:00:00.000Z' }) nextRunAt: Date;
+  @ApiProperty({ example: '2026-03-15T10:00:00.000Z' }) createdAt: Date;
+  @ApiProperty({ example: '2026-03-29T14:00:00.000Z' }) updatedAt: Date;
 }

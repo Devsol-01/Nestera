@@ -34,6 +34,7 @@ interface CacheMetrics {
   misses: number;
   sets: number;
   deletes: number;
+  evictions: number;
   inflightPeak: number;
   latency: {
     get: LatencyBucket;
@@ -147,6 +148,7 @@ export class CacheStrategyService {
       await this.cacheManager.del(key);
       this.recordLatency('del', Date.now() - t0);
       this.metrics.deletes++;
+      this.metrics.evictions++;
       this.logger.debug(`Cache DEL  ${key}`);
     } catch (error) {
       this.logger.error(`Cache delete error for key "${key}":`, error);
@@ -306,15 +308,21 @@ export class CacheStrategyService {
     const { hits, misses, sets, deletes, inflightPeak, latency, keyMetrics } =
       this.metrics;
     const total = hits + misses;
+    const hitRatio = total > 0 ? hits / total : 0;
+    const missRatio = total > 0 ? misses / total : 0;
 
     return {
       hits,
       misses,
       sets,
       deletes,
+      evictions: this.metrics.evictions,
       inflightNow: this.inflightCount,
       inflightPeak,
-      hitRate: total > 0 ? `${((hits / total) * 100).toFixed(2)}%` : '0%',
+      hitRate: `${(hitRatio * 100).toFixed(2)}%`,
+      missRate: `${(missRatio * 100).toFixed(2)}%`,
+      hitRatio,
+      missRatio,
       latency: {
         get: this.summariseLatency(latency.get),
         set: this.summariseLatency(latency.set),
@@ -477,6 +485,7 @@ export class CacheStrategyService {
       misses: 0,
       sets: 0,
       deletes: 0,
+      evictions: 0,
       inflightPeak: 0,
       latency: {
         get: { sum: 0, count: 0, samples: [] },

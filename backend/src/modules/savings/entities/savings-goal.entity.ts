@@ -78,6 +78,9 @@ export class SavingsGoal {
   @Column('uuid')
   userId: string;
 
+  @Column('uuid', { nullable: true })
+  tenantId: string | null;
+
   // ── Goal parameters ─────────────────────────────────────────────────────────
 
   /**

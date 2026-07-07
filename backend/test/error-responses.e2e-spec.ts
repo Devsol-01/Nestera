@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, ValidationPipe, BadRequestException } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
+import { flattenValidationErrors } from '../src/common/validators/validation-error.utils';
 
 describe('Standardized Error Responses E2E', () => {
   let app: INestApplication;
@@ -20,6 +21,11 @@ describe('Standardized Error Responses E2E', () => {
         whitelist: true,
         forbidNonWhitelisted: true,
         transform: true,
+        exceptionFactory: (errors) =>
+          new BadRequestException({
+            message: 'Validation failed',
+            errors: flattenValidationErrors(errors as never),
+          }),
       }),
     );
     await app.init();
@@ -74,7 +80,7 @@ describe('Standardized Error Responses E2E', () => {
     expect(Array.isArray(res.body.details)).toBe(true);
     expect(res.body.details.length).toBeGreaterThan(0);
     expect(res.body.details[0]).toHaveProperty('field');
-    expect(res.body.details[0]).toHaveProperty('message');
+    expect(res.body.details[0]).toHaveProperty('constraints');
   });
 
   it('should include requestId from correlation-id header', async () => {

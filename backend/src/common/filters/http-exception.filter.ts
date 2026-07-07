@@ -9,6 +9,10 @@ import {
 import { Request, Response } from 'express';
 import { ErrorCode } from '../enums/error-code.enum';
 import { DomainException } from '../exceptions/domain.exception';
+import {
+  ClassValidatorErrorLike,
+  flattenValidationErrors,
+} from '../validators/validation-error.utils';
 
 interface StandardErrorResponse {
   success: false;
@@ -77,6 +81,16 @@ function extractValidationDetails(
   const msg = exceptionResponse.message;
   if (!Array.isArray(msg)) return undefined;
 
+  if (msg.length > 0 && typeof msg[0] === 'object') {
+    return flattenValidationErrors(msg as ClassValidatorErrorLike[]).map(
+      (issue) => ({
+        field: issue.field,
+        constraints: issue.constraints,
+        value: issue.value,
+      }),
+    );
+  }
+
   return msg.map((m: string) => {
     const field = m.split(' ')[0];
     return { field, message: m };
@@ -114,6 +128,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
         path: request.url,
         docsUrl: exception.docsUrl,
       };
+
+      // Add Retry-After header for eventual consistency scenarios
+      if (exception.details && typeof exception.details === 'object') {
+        const retryAfterSeconds = (exception.details as Record<string, unknown>)
+          .retryAfterSeconds as number | undefined;
+        if (retryAfterSeconds && !isNaN(retryAfterSeconds)) {
+          response.setHeader('Retry-After', Math.ceil(retryAfterSeconds));
+        }
+      }
 
       this.logError(request, status, exception);
       return response.status(status).json(body);

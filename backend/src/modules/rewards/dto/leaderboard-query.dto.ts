@@ -12,19 +12,20 @@ export class LeaderboardQueryDto {
   @ApiPropertyOptional({
     enum: LeaderboardPeriod,
     default: LeaderboardPeriod.ALL_TIME,
+    example: LeaderboardPeriod.ALL_TIME,
   })
   @IsOptional()
   @IsEnum(LeaderboardPeriod)
   period?: LeaderboardPeriod = LeaderboardPeriod.ALL_TIME;
 
-  @ApiPropertyOptional({ default: 1, minimum: 1 })
+  @ApiPropertyOptional({ default: 1, minimum: 1, example: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ default: 100, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({ default: 100, minimum: 1, maximum: 100, example: 100 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

@@ -30,7 +30,7 @@ class RecentVoterDto {
   })
   walletAddress: string;
 
-  @ApiProperty({ enum: VoteDirection, enumName: 'VoteDirection' })
+  @ApiProperty({ enum: VoteDirection, enumName: 'VoteDirection', example: VoteDirection.FOR })
   direction: VoteDirection;
 
   @ApiProperty({ example: '5000' })
@@ -44,10 +44,16 @@ export class ProposalVotesResponseDto {
   @ApiProperty({ example: 12 })
   proposalOnChainId: number;
 
-  @ApiProperty({ type: ProposalVoteTallyDto })
+  @ApiProperty({
+    type: ProposalVoteTallyDto,
+    example: { forVotes: 128, againstVotes: 64, abstainVotes: 32, forWeight: '84250.5', againstWeight: '29300', abstainWeight: '10500', totalWeight: '124050.5' },
+  })
   tally: ProposalVoteTallyDto;
 
-  @ApiProperty({ type: [RecentVoterDto] })
+  @ApiProperty({
+    type: [RecentVoterDto],
+    example: [{ walletAddress: 'GB7TAYQB6A6E7MCCKRUYJ4JYK2YTHJOTD4A5Q65XAH2EJQ2F6J67P5ST', direction: 'FOR', weight: '5000', votedAt: '2026-03-26T13:01:15.518Z' }],
+  })
   recentVoters: RecentVoterDto[];
 
   @ApiProperty({

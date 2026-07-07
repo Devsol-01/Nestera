@@ -1,6 +1,7 @@
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { IsString, IsNotEmpty } from 'class-validator';
 import { Trim } from '../decorators/trim.decorator';
+import { flattenValidationErrors } from './validation-error.utils';
 
 class TestDto {
   @IsString()
@@ -18,10 +19,7 @@ describe('Validation Standardization and Sanitization', () => {
       forbidNonWhitelisted: true,
       transform: true,
       exceptionFactory: (errors) => {
-        const result = errors.map((error) => ({
-          field: error.property,
-          message: Object.values(error.constraints || {}).join(', '),
-        }));
+        const result = flattenValidationErrors(errors as never);
         return new BadRequestException({
           message: 'Validation failed',
           errors: result,
@@ -55,7 +53,32 @@ describe('Validation Standardization and Sanitization', () => {
       expect(response.errors).toBeDefined();
       expect(response.errors).toHaveLength(1);
       expect(response.errors[0].field).toBe('name');
-      expect(response.errors[0].message).toContain('name should not be empty');
+      expect(response.errors[0].constraints).toBeDefined();
+      expect(Object.values(response.errors[0].constraints)).toContain(
+        'name should not be empty',
+      );
     }
+  });
+
+  it('should preserve nested field paths', async () => {
+    const result = flattenValidationErrors([
+      {
+        property: 'profile',
+        children: [
+          {
+            property: 'street',
+            constraints: { isNotEmpty: 'street should not be empty' },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        field: 'profile.street',
+        constraints: { isNotEmpty: 'street should not be empty' },
+        value: undefined,
+      },
+    ]);
   });
 });
