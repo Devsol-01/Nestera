@@ -48,6 +48,7 @@ export const envValidationSchema = Joi.object({
   MAIL_USER: Joi.string().optional(),
   MAIL_PASS: Joi.string().optional(),
   MAIL_FROM: Joi.string().optional(),
+  MAIL_PROVIDERS: Joi.string().optional(),
 
   // ── Compression (response + request body) ──────────────────────────────────
   COMPRESSION_THRESHOLD: Joi.number().integer().min(0).default(1024).optional(),
