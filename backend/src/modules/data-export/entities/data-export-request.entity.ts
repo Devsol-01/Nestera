@@ -52,4 +52,15 @@ export class DataExportRequest {
 
   @Column({ type: 'timestamp', nullable: true })
   completedAt: Date | null;
+
+  /**
+   * SHA-256 hex digest of the raw ZIP artifact computed at finalization.
+   * Used to verify the artifact has not been tampered with before serving.
+   */
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  checksum: string | null;
+
+  /** Size of the artifact in bytes, stored alongside the checksum for audit. */
+  @Column({ type: 'bigint', nullable: true })
+  fileSize: number | null;
 }
